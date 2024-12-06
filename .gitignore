@@ -1,0 +1,22 @@
+# Node.js
+node_modules/
+
+# TypeScript
+/dist/
+
+# Các file hệ thống của macOS
+.DS_Store
+
+# Log files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Thư mục cài đặt của IDE (ví dụ: VSCode)
+.vscode/
+
+# Thư mục build của TypeScript
+/coverage/
+
+# Các file môi trường (ví dụ: .env)
+.env

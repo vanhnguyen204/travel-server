@@ -1,9 +1,7 @@
+const rss = require('./rss.js')
+const route = (app) => {
+  app.use('/news', rss);
+ 
+}
 
-import express from 'express'
-var router = express.Router();
-/* GET home page. */
-router.get('/', function(req, res, next) {
-  res.render('index', { title: 'Express' });
-});
-
-module.exports = router;
+module.exports = route

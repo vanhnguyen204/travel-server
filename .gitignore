@@ -20,3 +20,5 @@ yarn-error.log*
 
 # Các file môi trường (ví dụ: .env)
 .env
+# .gitignore
+src/firebase/travel-with-me-9a7d4-firebase-adminsdk-efnoj-0571ee7fc1.json

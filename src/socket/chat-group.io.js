@@ -1,19 +1,30 @@
-const {getData, setData} = require('../redis/index.js')
-
+const { getData, setData, deleteKey, } = require('../redis/index.js')
+const { sendPushNotification, sendPushNotificationToMultipleDevices, subscribeToTopic, sendPushNotificationToTopic } = require('../firebase/notification-firebase.js')
 
 const deviceToken = 'e3ptXpseREmjf2VCmle3FC:APA91bGI7WFUWh4doJoI0VqTODj2G5cU_Ov-UVhVwZDzgherBPH2Rqs1qcRZoyJCI9XhJHCz6bTZB1mdvGfvv7Av1-M9z7U7UaYYiw3Ivwm7XoczC45_Gao';
 const rooms = {};
 
 const chatNamespace = (io) => {
   const namespace = io.of('/group/chat');
-  
+
   namespace.on('connection', (socket) => {
-    socket.emit('connection', 'A user connected');
+    socket.emit('connection', 'A user connected to group chat');
     console.log('A user connected to /group/chat');
 
     socket.on('joined-chat-group', async (data) => {
       const { userId, groupId, fullname, avatar } = data;
+      const getDeviceToken = await getData(`user:${userId}:deviceTokens`);
+      if (getDeviceToken) {
 
+        subscribeToTopic(getDeviceToken, '/topics/group-' + groupId)
+          .then(res => {
+            const { status, message } = res;
+            console.log(message)
+          })
+          .catch(e => {
+            console.log('Error subscribe topic group ' + groupId)
+          })
+      }
       if (!rooms[groupId]) {
         rooms[groupId] = [];
       }
@@ -25,7 +36,8 @@ const chatNamespace = (io) => {
 
       console.log(`User ${userId} joined room ${groupId}`);
       const res = await getData(groupId + '');
-      namespace.to(groupId).emit('received-data-group-message', res);
+
+      namespace.to(groupId).emit('received-data-group-message', res || []);
       namespace.to(groupId).emit('user-joined-group-success', rooms[groupId]);
     });
 
@@ -41,32 +53,52 @@ const chatNamespace = (io) => {
     });
 
     socket.on('send-message-chat-group', async (data) => {
-      const { groupId, content } = data;
-      console.log('New chat: ', data);
-      let messages = [];
+      try {
+        const { groupId, content, groupName, userSendName, ...rest } = data;
 
-      const getOldData = await getData(groupId + '');
-      if (getOldData) {
-        messages = messages.concat(getOldData);
+        console.log('New chat: ', data);
+        let messages = [];
+        const getOldData = await getData(groupId + '');
+        if (getOldData) {
+          messages = messages.concat(getOldData);
+        }
+
+        messages.push({ ...rest, groupId, content });
+        await setData(groupId + '', messages);
+
+        await sendPushNotificationToTopic('/topics/group-' + groupId, userSendName + ': ' + content, groupName, {
+          groupId: groupId+'',
+          groupName: groupName
+        })
+        socket.to(groupId).emit('receive-message-chat-group', data);
+
+      } catch (error) {
+        console.error('Error handling send-message-chat-group:', error);
       }
-      messages.push(data);
-      await setData(groupId + '', messages);
-      sendPushNotification(deviceToken, content + '');
-      socket.to(groupId).emit('receive-message-chat-group', data);
     });
 
-    socket.on('connect-single-chat', (data) => {
-      const { senderId, receiverId } = data;
+    socket.on('delete-group-single-message', async (data) => {
+      const { groupId, messageId } = data;
 
-      const room = `${senderId}-${receiverId}`;
-      socket.join(room);
-      console.log(`User ${senderId} and ${receiverId} joined room: ${room}`);
-    });
+      const messages = await getData(groupId + '');
+      const filterMessages = messages.map(item => {
+        if (item.id === messageId) {
+          return {
+            ...item,
+            content: 'Đã bị gỡ'
+          }
 
-    socket.on('chat-single-message', (data) => {
-      const { room, message, senderId } = data;
-      namespace.to(room).emit('chat-single-message', { senderId, message });  // Send message to room
-    });
+        }
+        return item
+      });
+      await setData(groupId + '', filterMessages);
+      socket.to(groupId).emit('delete-group-single-message', {
+        messageId,
+        newContent: 'Đã bị gỡ'
+      });
+      console.log('Delete message success!');
+
+    })
 
     socket.on('disconnect', () => {
       if (socket.groupId) {
@@ -87,4 +119,4 @@ const chatNamespace = (io) => {
   });
 }
 
-module.exports =  chatNamespace;
+module.exports = chatNamespace;

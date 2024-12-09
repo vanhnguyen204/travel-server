@@ -7,17 +7,20 @@ const http = require('http');
 const { Server } = require('socket.io');
 const {parseRSS} = require('./rss/index')
 const {connect} = require('./redis/index.js');
-
+const { connectMongodb } = require('./db/index.js')
+const {chatFriendNameSpace} = require('./socket/chat-friend.io.js')
 const chatNamespace = require('./socket/chat-group.io.js'); // Import chatNamespace
 const notificationNameSpace = require('./socket/notification.io.js')
 const routes = require('./routes/index.js')
 const app = express();
-const ip = '192.168.0.100'; // Địa chỉ IP của máy chủ
+const {ip} = require('./utils/ip.js');
 
 
 // Kết nối tới Redis
 connect()
 
+// Kết nối mongodb
+connectMongodb();
 // View engine setup
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'jade');
@@ -60,6 +63,7 @@ const io = new Server(server, {
 });
 
 chatNamespace(io);
+chatFriendNameSpace(io);
 notificationNameSpace(io)
 server.listen(port, ip, () => {
   console.log(`Server is listening at http://${ip}:${port}`);
@@ -69,3 +73,4 @@ server.listen(port, ip, () => {
 
 
 module.exports =  app;
+

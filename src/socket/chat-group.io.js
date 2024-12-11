@@ -14,16 +14,9 @@ const chatNamespace = (io) => {
     socket.on('joined-chat-group', async (data) => {
       const { userId, groupId, fullname, avatar } = data;
       const getDeviceToken = await getData(`user:${userId}:deviceTokens`);
+      
       if (getDeviceToken) {
-
-        subscribeToTopic(getDeviceToken, '/topics/group-' + groupId)
-          .then(res => {
-            const { status, message } = res;
-            console.log(message)
-          })
-          .catch(e => {
-            console.log('Error subscribe topic group ' + groupId)
-          })
+        const {deviceToken, currentDevice } = getDeviceToken;
       }
       if (!rooms[groupId]) {
         rooms[groupId] = [];

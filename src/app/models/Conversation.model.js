@@ -17,7 +17,7 @@ const ConversationSchema = new Schema(
         },
         lastMessageType: {
             type: String,
-            enum: ['text', 'image', 'video', 'file'],
+            enum: ['text', 'image', 'video', 'emotion'],
         },
         lastMessageAt: {
             type: Date,

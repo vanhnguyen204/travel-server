@@ -1,129 +1,122 @@
-const { setData, getData, deleteKey } = require('../redis/index.js')
-const { sendPushNotification } = require('../firebase/notification-firebase.js')
+const { setData, getData, deleteKey } = require('../redis/index.js');
+const { sendPushNotification } = require('../firebase/notification-firebase.js');
+const MessageController = require('../app/controller/Message.controller.js');
 const users = new Map();
+
 const chatFriendNameSpace = (io) => {
-    const namespace = io.of('/friend/chat');
+    const namespace = io.of('/friend.io/chat');
+    const foregroundNotifyNameSpace = io.of('/notifications/foreground');
     namespace.on('connection', (socket) => {
-        socket.emit('connection', 'A user connected to friend chat');
+        console.log('User connected to /friend.io/chat');
+        socket.emit('connection', 'Connected to friend chat namespace');
 
-        
-        socket.on("user-online", async (data) => {
-            const { userId, friends } = data;
-            users.set(userId, { socketId: socket.id, friends });
-
-            console.log(`User ${userId} registered with friends: ${friends}`);
-
-            friends.forEach((friendId) => {
-                const friend = users.get(friendId);
-
-                if (friend) {
-                    socket.to(friend.socketId).emit("friend-online", { friendId: userId });
-
-                    socket.emit("friend-online", { friendId });
+        // User rời khỏi chat
+        socket.on("user-leave-chat", (userId) => {
+            try {
+                const user = users.get(userId);
+                if (user) {
+                    users.set(userId, { ...user, isFocusedOnChatScreen: false });
                 }
-            });
+            } catch (error) {
+                console.error("Error handling user leaving chat:", error);
+            }
         });
 
+        // User vào phòng chat
+        socket.on("user-enter-chat", async (data) => {
+            const { senderId, conversationId, receiverId } = data;
+
+            try {
+                console.log(`User ${senderId} joined conversation ${conversationId}`);
+                socket.join(conversationId);
+                users.set(senderId, { isFocusedOnChatScreen: true, socketId: socket.id });
+            } catch (error) {
+                console.error("Error handling user entering chat:", error);
+            }
+        });
+
+        // Gửi tin nhắn
         socket.on("friend-chat-send-message", async (data) => {
+            const { senderId, receiverId, message, messageType, conversationId, senderName } = data;
 
-            const { id, senderId, receiverId, message, sendTime, fullname } = data
-            const minUserId = Math.min(senderId, receiverId);
-            const maxUserId = Math.max(receiverId, senderId);
-            const chatKey = `messages:${minUserId}:${maxUserId}`;
-            const newMessage = {
-                id,
-                senderId,
-                receiverId,
-                message,
-                sendTime
-            }
-            const messages = [];
-            const getLastMessage = await getData(chatKey);
-            if (getLastMessage) {
-                messages = messages.concat(getLastMessage);
-            }
-            messages.push(newMessage)
-            await setData(chatKey, messages)
-            const receiverSocketId = users.get(receiverId);
-
-            if (receiverSocketId) {
-                socket.to(receiverSocketId).emit("friend-chat-receive-message", {
+            try {
+                // Lưu tin nhắn vào cơ sở dữ liệu
+                const res = await MessageController.createMessage({
                     senderId,
+                    receiverId,
                     message,
-                    sendTime
+                    messageType,
                 });
-            } else {
-                console.log(`User ${receiverId} is not online`);
-            }
-            const deviceToken = await getData(receiverId);
-            if (deviceToken) {
-                
-                sendPushNotification(deviceToken, message, fullname)
-            }
-        });
+                const getSenderSocketId = await getData(receiverId+'');
+                console.log('receiverId: ', receiverId)
+                const checkIsFocused = users.get(receiverId);
+                console.log('isFocusedOnChatScreen: ', checkIsFocused)
 
-        socket.on('friend-enable-typing', (data) => {
-            const { friendId } = data
-            const getSocketFriend = users.get(friendId);
-            if (getSocketFriend) {
+                if (getSenderSocketId ) {
+                    if (!checkIsFocused || checkIsFocused?.isFocusedOnChatScreen) {
+                        foregroundNotifyNameSpace.to(getSenderSocketId).emit('notify-foreground-chat', {
+                            senderName,
+                            message,
 
-                socket.to(getSocketFriend.socketId).emit('friend-typing', { isTyping: true })
-            } else {
-                console.log('Friend is offline');
-            }
-        })
-        socket.on('friend-disable-typing', (data) => {
-            const { friendId } = data
-            const getSocketFriend = users.get(friendId);
-            if (getSocketFriend) {
-
-                socket.to(getSocketFriend.socketId).emit('friend-typing', { isTyping: false })
-            } else {
-                console.log('Friend is offline');
-            }
-
-        })
-
-        socket.on("disconnect", () => {
-            let disconnectedUserId = null;
-            // Xóa user khỏi danh sách và tìm userId dựa trên socketId
-            for (let [userId, data] of users.entries()) {
-                if (data.socketId === socket.id) {
-                    disconnectedUserId = userId;
-                   
-                    break;
-                }
-            }
-          
-
-            // Thông báo cho bạn bè rằng người này đã offline
-            if (disconnectedUserId) {
-                console.log(`User ${disconnectedUserId} disconnected ///// friend-socket`);
-                const { friends } = users.get(disconnectedUserId) || {};
-            
-                
-                if (friends) {
+                        })
+                    }
                     
-                    friends.forEach((friendId) => {
-                        console.log('Send offline status to friend: ' + friendId);
-                        const friend = users.get(friendId);
-                        console.log(friend);
-                        if (friend) {
-                          
-                        
-                            socket.to(friend.socketId).emit("friend-offline", { friendId: disconnectedUserId });
-                        }
-                    });
-                    users.delete(disconnectedUserId)
                 }
+                console.log('New message: ', res);
+
+                // Emit tin nhắn đến phòng chat
+                namespace.to(conversationId).emit("friend-chat-receive-message", res);
+
+                // Gửi thông báo push nếu có
+                const key = `user:${receiverId}:deviceTokens`;
+                const deviceToken = await getData(key);
+                if (deviceToken.currentDevice === 'ANDROID') {
+                    sendPushNotification(deviceToken, message, senderName);
+                }
+            } catch (error) {
+                console.error("Error sending message:", error);
             }
-           
         });
 
+        // Bắt đầu gõ
+        socket.on('friend-start-typing', (data) => {
+            const { friendId, conversationId } = data;
 
-    })
+            try {
+                // Emit trạng thái đang gõ đến phòng chat
+                namespace.to(conversationId).emit('friend-typing-status', {
+                    friendId,
+                    isTyping: true,
+                });
+            } catch (error) {
+                console.error("Error handling start typing:", error);
+            }
+        });
 
+        // Ngừng gõ
+        socket.on('friend-end-typing', (data) => {
+            const { friendId, conversationId } = data;
 
-}
+            try {
+                // Emit trạng thái ngừng gõ đến phòng chat
+                namespace.to(conversationId).emit('friend-typing-status', {
+                    friendId,
+                    isTyping: false,
+                });
+            } catch (error) {
+                console.error("Error handling end typing:", error);
+            }
+        });
 
-module.exports = { chatFriendNameSpace }
+        // Xử lý khi socket ngắt kết nối
+        socket.on("disconnect", () => {
+            const userId = Array.from(users.keys()).find((id) => users.get(id)?.socketId === socket.id);
+            if (userId) {
+                users.set(userId, { ...users.get(userId), isFocusedOnChatScreen: false });
+            }
+            console.log("User disconnected from /friend.io/chat");
+        });
+    });
+};
+
+module.exports = { chatFriendNameSpace };

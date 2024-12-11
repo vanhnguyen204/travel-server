@@ -40,12 +40,14 @@ async function setData(key, data, ttlInSeconds = null) {
 
 // Get key
 async function getData(key) {
-  if (!await isConnected()) return null;
   try {
     const data = await client.get(key);
-    return data ? JSON.parse(data) : null;
-  } catch (err) {
-    console.error('Error getting data:', err);
+    if (!data) {
+      return null; // Không có dữ liệu
+    }
+    return JSON.parse(data); // Chuyển chuỗi JSON thành đối tượng/mảng
+  } catch (error) {
+    console.error("Error getting data:", error);
     return null;
   }
 }

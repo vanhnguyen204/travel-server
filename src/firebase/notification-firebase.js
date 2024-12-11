@@ -1,23 +1,24 @@
 const admin = require('./index.js');
 
 const sendPushNotification = async (deviceToken, message, title) => {
-    const payload = {
-        notification: {
-            title: title,
-            body: message,
-        },
-        token: deviceToken,
-        android: {
-            priority: 'high',
-        },
-    };
+
 
     try {
+        const payload = {
+            notification: {
+                title: title,
+                body: message,
+            },
+            token: deviceToken,
+            android: {
+                priority: 'high',
+            },
+        };
         const response = await admin.messaging().send(payload);
         console.log('Thông báo đã được gửi thành công:', response);
     } catch (error) {
-        console.error('Lỗi khi gửi thông báo:', error);
-        throw new Error('Lỗi khi gửi thông báo');
+        console.log('Lỗi khi gửi thông báo:', error);
+
     }
 };
 
@@ -57,7 +58,7 @@ const sendPushNotificationToMultipleDevices = async (deviceTokens, message, titl
 
 const subscribeToTopic = async (deviceToken, topic) => {
     try {
-        
+
         await admin.messaging().subscribeToTopic([deviceToken], topic);
         return {
             status: true,
@@ -103,7 +104,7 @@ const sendPushNotificationToTopic = async (topic, message, title, data) => {
             title: title,
             body: message,
         },
-        topic: topic, 
+        topic: topic,
         data: data ?? {},
         android: {
             priority: 'high',

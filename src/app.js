@@ -5,15 +5,19 @@ const cookieParser = require('cookie-parser');
 const logger = require('morgan');
 const http = require('http');
 const { Server } = require('socket.io');
-const {parseRSS} = require('./rss/index')
-const {connect} = require('./redis/index.js');
+const { parseRSS } = require('./rss/index')
+const { connect } = require('./redis/index.js');
 const { connectMongodb } = require('./db/index.js')
-const {chatFriendNameSpace} = require('./socket/chat-friend.io.js')
-const chatNamespace = require('./socket/chat-group.io.js'); // Import chatNamespace
-const notificationNameSpace = require('./socket/notification.io.js')
+const { friendNameSpace } = require('./socket/friend.io.js')
+const { chatFriendNameSpace } = require('./socket/chat-friend.io.js')
+const { videoCallNameSpace } = require('./socket/video-call.io.js')
+const chatNamespace = require('./socket/chat-group.io.js');
+const { groupNameSpace } = require('./socket/group.io.js')
+const notificationNameSpace = require('./socket/notification.io.js');
+const { foregroundNotifyNameSpace } = require('./socket/foreground-notify.io.js')
 const routes = require('./routes/index.js')
 const app = express();
-const {ip} = require('./utils/ip.js');
+const { ip } = require('./utils/ip.js');
 
 
 // Kết nối tới Redis
@@ -63,14 +67,16 @@ const io = new Server(server, {
 });
 
 chatNamespace(io);
+friendNameSpace(io);
+notificationNameSpace(io);
 chatFriendNameSpace(io);
-notificationNameSpace(io)
+foregroundNotifyNameSpace(io);
+videoCallNameSpace(io)
+groupNameSpace(io)
 server.listen(port, ip, () => {
   console.log(`Server is listening at http://${ip}:${port}`);
 });
 
 
-
-
-module.exports =  app;
+module.exports = app;
 

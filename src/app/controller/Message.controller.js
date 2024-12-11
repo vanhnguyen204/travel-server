@@ -3,9 +3,9 @@ const Conversation = require('../models/Conversation.model.js');
 
 class MessageController {
     
-    async createMessage(req, res, next) {
+    async createMessage(data) {
         try {
-            const { senderId, receiverId, message, messageType, fileUrl } = req.body;
+            const { senderId, receiverId, message, messageType, fileUrl } = data;
 
             let conversation = await Conversation.findOne({
                 participants: {
@@ -15,8 +15,6 @@ class MessageController {
             });
             
             if (!conversation) {
-                
-                
                 conversation = new Conversation({
                     participants: [
                         { userId: senderId },
@@ -27,8 +25,7 @@ class MessageController {
                     lastMessageAt: new Date(),
                 });
                 await conversation.save();
-            } else {
-                
+            } else {                
                 conversation.lastMessage = message;
                 conversation.lastMessageType = messageType;
                 conversation.lastMessageAt = new Date();
@@ -43,17 +40,11 @@ class MessageController {
                 messageType,
                 fileUrl,
             });
-            await newMessage.save();
-
-            res.status(201).json({
-                message: 'Message created successfully',
-                data: newMessage,
-                status: true,
-            });
+            const savedMessage =  await newMessage.save();
+            return savedMessage
         } catch (error) {
             console.error('Error creating message:', error);
-            res.status(500).json({ error: error.message, status: false });
-            next(error);
+            throw Error('Error create message: '+ error)
         }
     }
 

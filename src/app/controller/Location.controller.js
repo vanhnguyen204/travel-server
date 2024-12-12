@@ -22,7 +22,13 @@ class Location {
             const data = response.data;
 
             if (data.status === 'OK') {
-                res.json(data.predictions);
+                const responseData = data.predictions.map(item => {
+                    return {
+                        description: item.description,
+                        compound: item.compound
+                    }
+                })
+                res.json(responseData);
             } else {
                 res.status(400).json({ error: data.error_message || 'Không thể tìm kiếm địa chỉ.' });
             }

@@ -1,10 +1,6 @@
 const Notification = require('../models/Notification.model.js')
 class NotificationController {
-
-
     async getNotifications(req, res, next) {
-
-
         try {
             const { userId } = req.params;
             const page = req.params.page || 0;

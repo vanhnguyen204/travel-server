@@ -2,7 +2,7 @@ const { setData, getData, deleteKey } = require('../redis/index.js');
 const { sendPushNotification } = require('../firebase/notification-firebase.js');
 const MessageController = require('../app/controller/Message.controller.js');
 const users = new Map();
-
+const { friendChat, friendConversation } = require('./socket-key.io.js')
 const chatFriendNameSpace = (io) => {
     const namespace = io.of('/friend.io/chat');
     const foregroundNotifyNameSpace = io.of('/notifications/foreground');
@@ -47,24 +47,17 @@ const chatFriendNameSpace = (io) => {
                     message,
                     messageType,
                 });
-                const getSenderSocketId = await getData(receiverId+'');
-                console.log('receiverId: ', receiverId)
+
                 const checkIsFocused = users.get(receiverId);
-                console.log('isFocusedOnChatScreen: ', checkIsFocused)
 
-                if (getSenderSocketId ) {
-                    if (!checkIsFocused || checkIsFocused?.isFocusedOnChatScreen) {
-                        foregroundNotifyNameSpace.to(getSenderSocketId).emit('notify-foreground-chat', {
-                            senderName,
-                            message,
 
-                        })
-                    }
-                    
+
+                if (!checkIsFocused || checkIsFocused?.isFocusedOnChatScreen) {
+                    foregroundNotifyNameSpace.to(friendConversation + conversationId).emit('notify-foreground-chat', {
+                        senderName,
+                        message,
+                    })
                 }
-                console.log('New message: ', res);
-
-                // Emit tin nhắn đến phòng chat
                 namespace.to(conversationId).emit("friend-chat-receive-message", res);
 
                 // Gửi thông báo push nếu có

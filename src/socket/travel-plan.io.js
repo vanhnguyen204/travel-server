@@ -5,14 +5,12 @@ const { sendPushNotification, subscribeUserToMultipleTopics } = require('../fire
 
 const travelPlanNameSpace = (io) => {
     console.log('Set up notification socket.io')
-    const namespace = io.of('/travel-plan-foreground-notification');
+    const namespace = io.of('/notifications/travel-plan');
 
     namespace.on('connection', (socket) => {
         socket.emit('connection', 'A user connected to group chat');
 
-        socket.on('travel-plan-create', (data) => {
-            const { planName, groupId, memberIds,  } = data;
-        })
+        
 
 
         socket.on('connect_error', (err) => {
@@ -23,4 +21,4 @@ const travelPlanNameSpace = (io) => {
 
 }
 
-module.exports = travelPlanNameSpace;
+module.exports = { travelPlanNameSpace };

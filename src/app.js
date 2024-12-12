@@ -7,7 +7,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const { parseRSS } = require('./rss/index')
 const { connect } = require('./redis/index.js');
-const { connectMongodb } = require('./db/index.js')
+const { connectMongodb, testMysqlConnection } = require('./db/index.js')
 const { friendNameSpace } = require('./socket/friend.io.js')
 const { chatFriendNameSpace } = require('./socket/chat-friend.io.js')
 const { videoCallNameSpace } = require('./socket/video-call.io.js')
@@ -20,11 +20,13 @@ const app = express();
 const { ip } = require('./utils/ip.js');
 
 
+
 // Kết nối tới Redis
 connect()
 
 // Kết nối mongodb
 connectMongodb();
+testMysqlConnection();
 // View engine setup
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'jade');
@@ -76,7 +78,6 @@ groupNameSpace(io)
 server.listen(port, ip, () => {
   console.log(`Server is listening at http://${ip}:${port}`);
 });
-
 
 module.exports = app;
 

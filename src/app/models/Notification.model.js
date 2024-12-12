@@ -42,6 +42,7 @@ const NotificationSchema = new Schema(
 
 NotificationSchema.plugin(paginate);
 NotificationSchema.index({ createdAt: -1 });
+
 const Notification = mongoose.model('Notification', NotificationSchema, 'Notification');
 
 module.exports = Notification;

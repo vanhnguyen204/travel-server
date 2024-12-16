@@ -1,5 +1,5 @@
 const { setData, getData, deleteKey } = require('../redis/index.js');
-const { sendPushNotification } = require('../firebase/notification-firebase.js');
+const { sendPushNotification, sendPushNotificationToTopic } = require('../firebase/notification-firebase.js');
 const MessageController = require('../app/controller/Message.controller.js');
 const users = new Map();
 const { friendChat, friendConversation } = require('./socket-key.io.js')
@@ -37,7 +37,7 @@ const chatFriendNameSpace = (io) => {
 
         // Gửi tin nhắn
         socket.on("friend-chat-send-message", async (data) => {
-            const { senderId, receiverId, message, messageType, conversationId, senderName } = data;
+            const { senderId, receiverId, message, messageType, conversationId, senderName, someone } = data;
 
             try {
                 // Lưu tin nhắn vào cơ sở dữ liệu
@@ -49,23 +49,23 @@ const chatFriendNameSpace = (io) => {
                 });
 
                 const checkIsFocused = users.get(receiverId);
-
-
-
-                if (!checkIsFocused || checkIsFocused?.isFocusedOnChatScreen) {
-                    foregroundNotifyNameSpace.to(friendConversation + conversationId).emit('notify-foreground-chat', {
+                console.log('checkIsFocused: ', checkIsFocused)
+                const topic = '/topics/friend-' + conversationId;
+                if (!checkIsFocused || !checkIsFocused?.isFocusedOnChatScreen) {
+                   
+                    foregroundNotifyNameSpace.to(topic).emit('notify-foreground-chat-friend', {
                         senderName,
                         message,
+                        conversationId,
+                        someone,
+                        senderId
                     })
                 }
                 namespace.to(conversationId).emit("friend-chat-receive-message", res);
 
-                // Gửi thông báo push nếu có
-                const key = `user:${receiverId}:deviceTokens`;
-                const deviceToken = await getData(key);
-                if (deviceToken.currentDevice === 'ANDROID') {
-                    sendPushNotification(deviceToken, message, senderName);
-                }
+                sendPushNotificationToTopic(topic, message, senderName + ' đã gửi cho bạn một tin nhắn', {
+                    conversationId
+                })
             } catch (error) {
                 console.error("Error sending message:", error);
             }

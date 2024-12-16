@@ -4,7 +4,7 @@ var NotificationController = require('../app/controller/Notification.controller.
 
 router.post('/', NotificationController.createTravelPlanNotification);
 
-router.get('/', NotificationController.getTravelPlanNotification)
+router.get('/', NotificationController.getNotification)
 
 
 module.exports = router;

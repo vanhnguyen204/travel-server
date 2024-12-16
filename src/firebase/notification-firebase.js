@@ -1,4 +1,4 @@
-const admin = require('./index.js');
+const {admin} = require('./index.js');
 
 const sendPushNotification = async (deviceToken, message, title) => {
 

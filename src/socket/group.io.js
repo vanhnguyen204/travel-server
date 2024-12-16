@@ -1,8 +1,8 @@
 const { getData: getDataRedis, setData: setDataRedis, deleteKey, redisClient } = require('../redis/index.js')
-const { sendPushNotification, subscribeUserToMultipleTopics, subscribeToTopic } = require('../firebase/notification-firebase.js');
+const { sendPushNotification, subscribeUserToMultipleTopics, subscribeToTopic, sendPushNotificationToTopic } = require('../firebase/notification-firebase.js');
 const { messaging } = require('firebase-admin');
 const { pool } = require('../db/index.js')
-const {groupTravelPlanCreate} = require('./socket-key.io.js')
+const { groupTravelPlanCreate } = require('./socket-key.io.js')
 const Notification = require('../app/models/Notification.model.js')
 
 const queryMemberInGroup = 'select user_id from member where group_id = ?'
@@ -12,6 +12,9 @@ const groupNameSpace = (io) => {
     const foregroundNamespace = io.of('/notifications/foreground');
     namespace.on('connection', (socket) => {
         socket.emit('connection', 'A user connected to group chat');
+        socket.on('group-create-new-group', (data) => {
+            const { groupId, } = data
+        });
         socket.on('group-accept-user-join', async (data) => {
             const { userId, groupId, groupName, adminName } = data;
             const key = `user:${userId}:deviceTokens`;
@@ -20,7 +23,7 @@ const groupNameSpace = (io) => {
                 deviceToken,
                 socketId,
                 currentDevice,
-                
+
             } = getUserJoinInfo;
             const topic = '/topics/group-' + groupId;
             if (currentDevice === 'IOS') {
@@ -33,7 +36,7 @@ const groupNameSpace = (io) => {
             if (currentDevice === 'ANDROID' && deviceToken) {
                 await subscribeToTopic(deviceToken, topic)
             }
-            
+
         })
         socket.on('travel-plan-create', async (data) => {
             const { planName, groupId, adminId, groupName, adminName, groupCoverImage } = data;
@@ -49,22 +52,31 @@ const groupNameSpace = (io) => {
             const notify = {
                 title: groupName,
                 message: adminName + ' đã tạo một kế hoạch mới: ' + planName,
-                image: groupCoverImage,
                 action: {
                     type: 'navigate',
                     payload: {
-                        groupId
+                        screen: 'GroupDetailsScreen',
+                        params: {
+                            referenceId: groupId
+                        }
                     }
                 },
-                groupId,
-                recipients
+                recipients,
+                type: 'group'
             }
             const newNotification = new Notification(notify);
+            const topic = '/topics/group-' + groupId
             await newNotification.save();
-            foregroundNamespace.to(groupTravelPlanCreate+groupId).emit('travel-plan-create', {
+            foregroundNamespace.to(topic).emit('travel-plan-create', {
                 title: groupName,
                 message: adminName + ' đã tạo một kế hoạch mới: ' + planName,
-                groupId
+                groupId,
+                adminId
+            })
+           
+            await sendPushNotificationToTopic(topic, adminName + ' đã tạo một kế hoạch mới: ' + planName, groupName, {
+                groupId: groupId + '',
+                type: 'group'
             })
         })
 

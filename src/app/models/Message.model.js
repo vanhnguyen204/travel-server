@@ -3,19 +3,15 @@ const paginate = require('mongoose-paginate-v2');
 
 const MessageSchema = new mongoose.Schema(
     {
-        conversationId: {
-            type: mongoose.Schema.Types.ObjectId,
-            required: true,
-            ref: 'Conversation',
+        referenceId: {
+            type: mongoose.Schema.Types.Mixed,
+            required: true,        
         },
         senderId: {
             type: Number,
             required: true,
         },
-        receiverId: {
-            type: Number,
-            required: true,
-        },
+       
         message: {
             type: String,
             required: true,
@@ -31,7 +27,7 @@ const MessageSchema = new mongoose.Schema(
         },
         emotion: {
             type: String,
-            enum: ['LOVE', 'SAD', 'ANGRY', 'DOUBLE_LOVE', 'HAHA', 'LIKE', ''], // Các cảm xúc có thể được tùy chỉnh
+            enum: ['LOVE', 'SAD', 'ANGRY', 'DOUBLE_LOVE', 'HAHA', 'LIKE', ''],
             default: '',
         },
         isRead: {

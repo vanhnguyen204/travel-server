@@ -1,17 +1,17 @@
 const Conversation = require('../models/Conversation.model.js');
 const Message = require('../models/Message.model.js')
+const { pool } = require('../../db/index.js')
 class ConversationController {
     async getConversations(req, res, next) {
         try {
-            const { userId } = req.params; // ID của người dùng
-            const { page = 1, limit = 10 } = req.query; // Phân trang (mặc định page=1, limit=10)
+            const { userId } = req.params;
+            const { page = 1, limit = 10 } = req.query;
 
-            // Sử dụng mongoose-paginate-v2
             const options = {
                 page: parseInt(page, 10),
                 limit: parseInt(limit, 10),
-                sort: { lastMessageAt: -1 }, // Sắp xếp theo tin nhắn cuối
-                lean: true, // Trả về plain object thay vì mongoose document
+                sort: { updatedAt: -1 },
+                lean: true,
             };
 
             const result = await Conversation.paginate(
@@ -27,10 +27,33 @@ class ConversationController {
                 });
             }
 
+            const participantIds = [
+                ...new Set(result.docs.flatMap((conv) => conv.participants.map((p) => p.userId))),
+            ];
+            const [avatars] = await pool
+                .promise()
+                .query("SELECT id AS userId, avatar_url, fullname FROM user WHERE id IN (?)", [participantIds]);
+
+            const avatarMap = {}; // Tạo map để tra cứu avatar nhanh hơn
+            avatars.forEach(avatar => {
+                avatarMap[avatar.userId] = avatar;
+            });
+
+            const resWithAvatar = result.docs.map((conversation) => {
+                let participant = conversation.participants.find(it => it.userId !== +userId);
+                const avatar = participant ? avatarMap[participant.userId] : null;
+
+                return {
+                    ...conversation,
+                    avatar_url: avatar ? avatar.avatar_url : null,
+                    fullname: avatar ? avatar.fullname : 'Unknown'
+                };
+            });
+
             res.status(200).json({
                 message: 'Conversations retrieved successfully',
                 data: {
-                    docs: result.docs,
+                    docs: resWithAvatar,
                     pagination: {
                         totalDocs: result.totalDocs,
                         totalPages: result.totalPages,
@@ -42,7 +65,7 @@ class ConversationController {
                         nextPage: result.nextPage,
                     },
                 },
-            
+
                 status: true,
             });
         } catch (error) {
@@ -113,4 +136,4 @@ class ConversationController {
     }
 }
 
-module.exports  = new ConversationController();
+module.exports = new ConversationController();

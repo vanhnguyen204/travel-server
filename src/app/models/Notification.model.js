@@ -6,24 +6,24 @@ const { Schema } = mongoose;
 const NotificationSchema = new Schema(
     {
         title: { type: String, default: '', required: true }, 
-        message: { type: String, default: '', required: true }, 
-        image: { type: String, default: '' },
+        message: { type: String, default: '', required: true },     
         action: {
             type: {
                 type: String,
-                default: 'navigate',
-                required: true,
+                default: '',
+                
             },
             payload: {
-                type: Schema.Types.Mixed, 
-                required: true,
+                screen: { type: String, default: '' },
+                params: { 
+                    type: Schema.Types.Mixed, 
+                }
             },
         },
-        groupId: {
-            type: Number,
-            default: 0,
-            required: true,
-            index: true,
+        type: {
+            type: String,
+            default: '',
+            enum: ['group', 'friend']
         },
         recipients: [
             {

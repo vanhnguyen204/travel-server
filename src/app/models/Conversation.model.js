@@ -27,6 +27,15 @@ const ConversationSchema = new Schema(
             type: Boolean,
             default: false,
         },
+        enableNotification: {
+            type: Boolean,
+            default: true,
+        },
+        iconEmotion: {
+            type: String,
+            enum: ['LOVE', 'SAD', 'ANGRY', 'DOUBLE_LOVE', 'HAHA', 'LIKE'],
+            default: 'LIKE'
+        }
     },
     {
         timestamps: true,

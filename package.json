@@ -9,6 +9,7 @@
   "dependencies": {
     "@redis/client": "^1.6.0",
     "@types/express": "^5.0.0",
+    "agora-token": "^2.0.3",
     "amqplib": "^0.10.5",
     "axios": "^1.7.9",
     "cheerio": "^1.0.0",

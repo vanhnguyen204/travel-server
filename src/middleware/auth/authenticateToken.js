@@ -1,8 +1,8 @@
 const axios = require('axios'); // Thư viện để gửi yêu cầu HTTP
 const { ip } = require('../../utils/ip.js')
 const authenticateToken = async (req, res, next) => {
-   
-    
+
+
     try {
         const authHeader = req.headers['authorization'];
         if (!authHeader) {
@@ -16,7 +16,12 @@ const authenticateToken = async (req, res, next) => {
         }
         // Gửi yêu cầu xác thực token đến Spring Boot server
         const response = await axios.post(`http://${ip}:8080/onboarding/auth/token`, {
-            token: token,
+            deviceToken: '',
+            currentDevice: 'IOS'
+        }, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
         });
         console.log('Verify token: ', response.data);
 

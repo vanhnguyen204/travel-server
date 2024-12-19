@@ -9,8 +9,7 @@ const foregroundNotifyNameSpace = (io) => {
         socket.emit('connection', 'A user connected to foreground notification');
 
         socket.on('foreground-initial-data', async (data) => {
-            const { userId, deviceToken, currentDevice } = data;
-
+            const { userId, deviceToken, currentDevice, } = data;
 
             await subscribeUserToAllTopics(userId, deviceToken, currentDevice)
             const res = await getTopicOfUser(userId);
@@ -20,7 +19,10 @@ const foregroundNotifyNameSpace = (io) => {
                     socket.join(topic)
                 }
             }
-            console.log('---- SETUP FOREGROUND NOTIFICATION FOR ID: ', userId)
+            socket.join(userId)
+            console.log('---- SETUP FOREGROUND NOTIFICATION FOR ID: ', userId);
+            // const rooms = namespace.adapter.rooms;
+            // console.log('ROOMS: ', rooms)
         })
 
 

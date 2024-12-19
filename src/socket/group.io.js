@@ -15,27 +15,57 @@ const groupNameSpace = (io) => {
         socket.on('group-create-new-group', (data) => {
             const { groupId, } = data
         });
-        socket.on('group-accept-user-join', async (data) => {
-            const { userId, groupId, groupName, adminName } = data;
-            const key = `user:${userId}:deviceTokens`;
-            const getUserJoinInfo = await getDataRedis(key);
-            const {
-                deviceToken,
-                socketId,
-                currentDevice,
+        socket.on('group-user-request-join', async (data) => {
+            const { groupId, adminId, userRequestJoinName, groupName } = data;
+            const notify = {
+                title: groupName,
+                message: 'Có thành viên mới muốn tham gia vào nhóm của bạn.',
+                action: {
+                    type: 'navigate',
+                    payload: {
+                        screen: 'GroupDetailsScreen',
+                        params: {
+                            referenceId: groupId
+                        }
+                    }
+                },
+                recipients: [
+                    {
+                        userId: adminId,
+                        isRead: false
+                    }
+                ],
+                type: 'group'
+            }
+            const newNotification = new Notification(notify);
+            await newNotification.save();
+            foregroundNamespace.to(adminId).emit('group-user-request-join', {
+                title: groupName,
+                message: userRequestJoinName + ' muốn gia nhập nhóm của bạn.',
+                groupId,
 
-            } = getUserJoinInfo;
+            })
+        })
+        socket.on('group-accept-user-join', async (data) => {
+            const { groupId, groupName, memberId } = data;
+    
             const topic = '/topics/group-' + groupId;
-            if (currentDevice === 'IOS') {
-                socket.to(socketId).emit('group-accept-user-join', {
-                    title: 'Nhóm ' + groupName,
-                    messaging: adminName + ' đã phê duyệt bạn vào nhóm.',
+            const rooms = foregroundNamespace.adapter.rooms;
+            const getRoomOfGroup = rooms.get(topic);
+            const getMemberSocketId = rooms.get(memberId)
+            if (getMemberSocketId) {
+                getRoomOfGroup.add(getMemberSocketId.values().next().value)
+                foregroundNamespace.adapter.rooms.set(topic, getRoomOfGroup)
+                // console.log('New socket: ', rooms)
+
+                foregroundNamespace.to(memberId).emit('group-accept-user-join', {
+                    title: 'Nhóm mới',
+                    message: 'Bạn đã được chấp nhận vào nhóm ' + groupName,
+                    memberId,
                     groupId
                 })
             }
-            if (currentDevice === 'ANDROID' && deviceToken) {
-                await subscribeToTopic(deviceToken, topic)
-            }
+            
 
         })
         socket.on('travel-plan-create', async (data) => {
@@ -51,7 +81,7 @@ const groupNameSpace = (io) => {
             })
             const notify = {
                 title: groupName,
-                message: adminName + ' đã tạo một kế hoạch mới: ' + planName,
+                message: 'Kế hoạch mới: ' + planName,
                 action: {
                     type: 'navigate',
                     payload: {
@@ -65,15 +95,15 @@ const groupNameSpace = (io) => {
                 type: 'group'
             }
             const newNotification = new Notification(notify);
-            const topic = '/topics/group-' + groupId
             await newNotification.save();
+            const topic = '/topics/group-' + groupId
             foregroundNamespace.to(topic).emit('travel-plan-create', {
                 title: groupName,
-                message: adminName + ' đã tạo một kế hoạch mới: ' + planName,
+                message: 'Kế hoạch mới: ' + planName,
                 groupId,
                 adminId
             })
-           
+
             await sendPushNotificationToTopic(topic, adminName + ' đã tạo một kế hoạch mới: ' + planName, groupName, {
                 groupId: groupId + '',
                 type: 'group'

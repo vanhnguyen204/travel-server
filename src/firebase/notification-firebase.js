@@ -1,6 +1,6 @@
 const {admin} = require('./index.js');
 
-const sendPushNotification = async (deviceToken, message, title) => {
+const sendPushNotification = async (deviceToken, message, title, data) => {
 
 
     try {
@@ -13,6 +13,7 @@ const sendPushNotification = async (deviceToken, message, title) => {
             android: {
                 priority: 'high',
             },
+            data: data ?? {}
         };
         const response = await admin.messaging().send(payload);
         console.log('Thông báo đã được gửi thành công:', response);

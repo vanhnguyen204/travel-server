@@ -26,7 +26,6 @@ class ConversationController {
                     status: false,
                 });
             }
-
             const participantIds = [
                 ...new Set(result.docs.flatMap((conv) => conv.participants.map((p) => p.userId))),
             ];
@@ -46,7 +45,8 @@ class ConversationController {
                 return {
                     ...conversation,
                     avatar_url: avatar ? avatar.avatar_url : null,
-                    fullname: avatar ? avatar.fullname : 'Unknown'
+                    fullname: avatar ? avatar.fullname : 'Unknown',
+                    partnerId: avatar ? avatar.userId : null
                 };
             });
 

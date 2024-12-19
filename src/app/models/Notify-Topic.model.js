@@ -35,7 +35,7 @@ const NotifyTopic = new mongoose.Schema(
                 },
                 subscribedDeviceTokens: [
                     {
-                        token: { type: String, required: true },
+                        token: { type: String},
                         deviceType: { type: String, enum: ['IOS', 'ANDROID'], required: true },
                     },
                 ],

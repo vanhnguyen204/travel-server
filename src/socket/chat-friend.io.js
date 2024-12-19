@@ -2,7 +2,14 @@ const { setData, getData, deleteKey } = require('../redis/index.js');
 const { sendPushNotification, sendPushNotificationToTopic } = require('../firebase/notification-firebase.js');
 const MessageController = require('../app/controller/Message.controller.js');
 const users = new Map();
-const { friendChat, friendConversation } = require('./socket-key.io.js')
+const { friendChat, friendConversation } = require('./socket-key.io.js');
+const { pool } = require('../db/index.js');
+const queryFriendId = `
+SELECT id
+FROM friend_ship
+WHERE (user_send_id = ? AND user_received_id = ?)
+   OR (user_send_id = ? AND user_received_id = ?);
+`
 const chatFriendNameSpace = (io) => {
     const namespace = io.of('/friend.io/chat');
     const foregroundNotifyNameSpace = io.of('/notifications/foreground');
@@ -24,12 +31,19 @@ const chatFriendNameSpace = (io) => {
 
         // User vào phòng chat
         socket.on("user-enter-chat", async (data) => {
-            const { senderId, conversationId, receiverId } = data;
+            const { senderId, receiverId, yourAvatar } = data;
+            const { fetchImageAsBase64 } = await import('../utils/file.mjs');
 
             try {
-                console.log(`User ${senderId} joined conversation ${conversationId}`);
-                socket.join(conversationId);
-                users.set(senderId, { isFocusedOnChatScreen: true, socketId: socket.id });
+                const [getFriendId] = await pool.promise().query(queryFriendId, [senderId, receiverId, receiverId, senderId]);
+                const { id } = getFriendId[0];
+                let avatarBase64 = yourAvatar ? await fetchImageAsBase64(yourAvatar) : ''
+               
+                if (id) {
+                    const topic = '/topics/friend-' + id
+                    socket.join(topic);
+                    users.set(senderId, { isFocusedOnChatScreen: true, socketId: socket.id, friendId: id, avatar: avatarBase64 });
+                }
             } catch (error) {
                 console.error("Error handling user entering chat:", error);
             }
@@ -37,9 +51,18 @@ const chatFriendNameSpace = (io) => {
 
         // Gửi tin nhắn
         socket.on("friend-chat-send-message", async (data) => {
-            const { senderId, receiverId, message, messageType, conversationId, senderName, someone } = data;
+            const { senderId, receiverId, message, messageType, senderName, someone } = data;
 
             try {
+
+
+                const checkIsFocused = users.get(receiverId);
+                // console.log('checkIsFocused: ', checkIsFocused)
+                // console.log('Users: ', users)
+                const getCurrentMapUser = users.get(senderId);
+                // console.log('getCurrentMapUser: ', getCurrentMapUser)
+                const topic = '/topics/friend-' + getCurrentMapUser.friendId;
+                // console.log('topic: ', topic)
                 // Lưu tin nhắn vào cơ sở dữ liệu
                 const res = await MessageController.createMessage({
                     senderId,
@@ -47,25 +70,22 @@ const chatFriendNameSpace = (io) => {
                     message,
                     messageType,
                 });
-
-                const checkIsFocused = users.get(receiverId);
-                console.log('checkIsFocused: ', checkIsFocused)
-                const topic = '/topics/friend-' + conversationId;
+                namespace.to(topic).emit("friend-chat-receive-message", res);
                 if (!checkIsFocused || !checkIsFocused?.isFocusedOnChatScreen) {
-                   
+
                     foregroundNotifyNameSpace.to(topic).emit('notify-foreground-chat-friend', {
                         senderName,
                         message,
-                        conversationId,
                         someone,
-                        senderId
+                        senderId,
+                        avatarBase64: getCurrentMapUser.avatar,
+                        friendId: senderId
                     })
                 }
-                namespace.to(conversationId).emit("friend-chat-receive-message", res);
+                await sendPushNotificationToTopic(topic, message, senderName,)
 
-                sendPushNotificationToTopic(topic, message, senderName + ' đã gửi cho bạn một tin nhắn', {
-                    conversationId
-                })
+
+
             } catch (error) {
                 console.error("Error sending message:", error);
             }

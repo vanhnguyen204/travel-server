@@ -1,8 +1,10 @@
 const { getData, setData, deleteKey, } = require('../redis/index.js')
 const { sendPushNotification, sendPushNotificationToMultipleDevices, subscribeToTopic, sendPushNotificationToTopic } = require('../firebase/notification-firebase.js')
 const Message = require('../app/models/Message.model.js')
-const deviceToken = 'e3ptXpseREmjf2VCmle3FC:APA91bGI7WFUWh4doJoI0VqTODj2G5cU_Ov-UVhVwZDzgherBPH2Rqs1qcRZoyJCI9XhJHCz6bTZB1mdvGfvv7Av1-M9z7U7UaYYiw3Ivwm7XoczC45_Gao';
+
 const rooms = {};
+const { pool } = require('../db/index.js')
+const queryMemberInGroup = 'select user_id from member where group_id = ?';
 
 const chatNamespace = (io) => {
   const namespace = io.of('/group/chat');
@@ -43,7 +45,7 @@ const chatNamespace = (io) => {
       try {
         const { groupId, content, groupName, userSendName, senderId, messageType, fileUrl, senderAvatarUrl } = data;
 
-        console.log('New group chat message: ', data);
+        // console.log('New group chat message: ', data);
         const newMessage = new Message({
           referenceId: groupId,
           senderId,
@@ -56,18 +58,36 @@ const chatNamespace = (io) => {
           ...savedMessage.toObject(),
           avatar_url: senderAvatarUrl
         }
-        console.log('Avatar sender: ', responseMessage)
+        // console.log('Avatar sender: ', responseMessage)
         namespace.to(groupId).emit('receive-message-chat-group', responseMessage);
         const topic = '/topics/group-' + groupId
-        foregroundNamespace.to(topic).emit('group-chat-notify-foreground', {
-          title: groupName,
-          message: userSendName + ': ' + content,
-          senderId,
-          payload: {
-            groupId,
+        const [rows] = await pool.promise().query(
+          queryMemberInGroup,
+          [groupId]
+        );
+        // console.log('Current online user: ', rooms[groupId])
+        const onlineUsers  = rooms[groupId];
+        const onlineUserIds = new Set(onlineUsers.map((user) => user.userId));
+        const filteredUsersNotInRoom = rows.filter(
+          (user) => !onlineUserIds.has(user.user_id)
+        );
 
-          }
-        })
+        console.log(filteredUsersNotInRoom);
+``
+        filteredUsersNotInRoom.forEach((user) => {
+          const { user_id } = user;
+          // console.log('Send notify to: ', user_id)
+          foregroundNamespace.to(user_id).emit('group-chat-notify-foreground', {
+            title: groupName,
+            message: userSendName + ': ' + content,
+            senderId,
+            payload: {
+              groupId,
+
+            }
+          })
+        });
+
 
         await sendPushNotificationToTopic(topic, userSendName + ': ' + content, groupName, {
           groupId: groupId + '',

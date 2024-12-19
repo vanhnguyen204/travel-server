@@ -2,7 +2,9 @@ const Message = require('../models/Message.model.js');
 const Conversation = require('../models/Conversation.model.js');
 const { pool } = require('../../db/index.js');
 const mongoose = require('mongoose');
-
+const { generateAgoraToken } = require('../../socket/video-call.io.js');
+const AgoraToken = require('agora-token');
+const { RtcTokenBuilder, RtcRole } = require('agora-token');
 class MessageController {
 
 
@@ -12,10 +14,10 @@ class MessageController {
 
             // Find or create conversation
             let conversation = await Conversation.findOne({
-                participants: {
-                    $elemMatch: { userId: senderId },
-                    $elemMatch: { userId: receiverId },
-                },
+                $and: [
+                    { participants: { $elemMatch: { userId: Number(senderId) } } },
+                    { participants: { $elemMatch: { userId: Number(receiverId) } } }
+                ]
             });
 
             if (!conversation) {
@@ -57,14 +59,18 @@ class MessageController {
      */
     async getMessagesFromFriend(req, res, next) {
         try {
-            const { referenceId } = req.params;
+            const { yourId, partnerId } = req.query;
             const page = parseInt(req.query.page) || 1;
             const limit = parseInt(req.query.limit) || 10;
 
             const conversation = await Conversation.findOne({
-                participants: { $elemMatch: { userId: Number(referenceId) } },
+                $and: [
+                    { participants: { $elemMatch: { userId: Number(yourId) } } },
+                    { participants: { $elemMatch: { userId: Number(partnerId) } } }
+                ]
             });
 
+            console.log('Conversation id: ', conversation)
             if (!conversation) {
                 return res.status(200).json({
                     message: 'Cannot find conversation.',
@@ -74,7 +80,7 @@ class MessageController {
             }
 
             const result = await fetchMessages({
-                referenceId: new mongoose.Types.ObjectId(conversation._id) ,
+                referenceId: new mongoose.Types.ObjectId(conversation._id),
                 page,
                 limit,
                 getAvatarQuery: conversation.participants.map(item => item.userId),
@@ -96,6 +102,7 @@ class MessageController {
                 status: true,
             });
         } catch (error) {
+            console.log('ERROR GET MESSAGE FRIEND: ', error)
             next(error);
         }
     }
@@ -108,6 +115,7 @@ class MessageController {
             const { referenceId } = req.params;
             const page = parseInt(req.query.page) || 1;
             const limit = parseInt(req.query.limit) || 10;
+
 
             const [avatars] = await pool.promise().query(
                 `SELECT u.id, u.avatar_url 
@@ -161,7 +169,7 @@ class MessageController {
             const conversation = await Conversation.findOne({
                 _id: new mongoose.Types.ObjectId(referenceId)
             });
-            
+
             if (!conversation) {
                 return res.status(400).json({
                     message: 'Conversation not found.',
@@ -233,7 +241,6 @@ async function fetchMessages({ referenceId, page, limit, getAvatarQuery }) {
                 lean: true,
             }
         );
-console.log('Result: ', result)
         // Attach avatars
         result.docs = attachAvatarsToMessages(result.docs, avatarMap);
 

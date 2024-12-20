@@ -70,7 +70,7 @@ class MessageController {
                 ]
             });
 
-            console.log('Conversation id: ', conversation)
+            // console.log('Conversation id: ', conversation)
             if (!conversation) {
                 return res.status(200).json({
                     message: 'Cannot find conversation.',

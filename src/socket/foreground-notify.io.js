@@ -21,8 +21,8 @@ const foregroundNotifyNameSpace = (io) => {
             }
             socket.join(userId)
             console.log('---- SETUP FOREGROUND NOTIFICATION FOR ID: ', userId);
-            // const rooms = namespace.adapter.rooms;
-            // console.log('ROOMS: ', rooms)
+            const rooms = namespace.adapter.rooms;
+            console.log('ROOMS: ', rooms)
         })
 
 

@@ -3,13 +3,13 @@ var router = express.Router();
 const { authenticateToken } = require('../middleware/auth/authenticateToken.js');
 const MessageController = require('../app/controller/Message.controller.js');
 router.get('/friend',
-    //  authenticateToken, 
+     authenticateToken, 
     MessageController.getMessagesFromFriend);
 router.get('/group/:referenceId',
-    // authenticateToken,
+    authenticateToken,
     MessageController.getMessagesFromGroup);
 router.get('/conversation/:referenceId',
-    //  authenticateToken,
+     authenticateToken,
     MessageController.getMessageFromConversation);
 
 module.exports = router;

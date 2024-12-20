@@ -110,6 +110,7 @@ const groupNameSpace = (io) => {
             })
         })
 
+        
         socket.on('connect_error', (err) => {
             console.log('Connection Error: ', err.message);
         });

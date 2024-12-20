@@ -122,6 +122,32 @@ class NotificationController {
         }
     }
 
+    async markAsRead(req, res, next) {
+        try {
+            const { userId } = req.params;
+
+            // Kiểm tra xem userId có tồn tại không
+            if (!userId) {
+                return res.status(400).json({ message: "User ID is required", status: false });
+            }
+
+            // Cập nhật tất cả thông báo của userId để đánh dấu là đã đọc
+            await Notification.updateMany(
+                { "recipients.userId": userId }, // Điều kiện tìm thông báo cho userId
+                { $set: { "recipients.$.isRead": true } } // Cập nhật trường isRead thành true
+            );
+
+            return res.status(200).json({
+                message: "Notifications marked as read successfully",
+                status: true
+            });
+        } catch (error) {
+            console.error("Error marking notifications as read: ", error);
+            res.status(500).json({ error: "Internal Server Error", status: false });
+            next(error);
+        }
+    }
+
 }
 
 module.exports = new NotificationController();

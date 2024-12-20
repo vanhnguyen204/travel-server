@@ -1,8 +1,9 @@
 // require = require('esm')(module);
 const { pool } = require('../db/index.js');
-const { sendPushNotification } = require('../firebase/notification-firebase.js');
+const { sendPushNotification, subscribeToTopic, unsubscribeFromTopic } = require('../firebase/notification-firebase.js');
 
-const Notification = require('../app/models/Notification.model.js')
+const Notification = require('../app/models/Notification.model.js');
+const NotifyTopicModel = require('../app/models/Notify-Topic.model.js');
 const users = new Map();
 const socketToUser = new Map(); // For efficient disconnect handling
 
@@ -192,6 +193,82 @@ const friendNameSpace = (io) => {
 
 
 
+        socket.on('friend-toggle-enable-notification', async (data) => {
+            const { yourId, yourFriendId, status, currentDevice } = data;
+            console.log('Data: ', data);
+
+            try {
+                // Truy vấn để lấy friendShipId
+                const [getFriendShipId] = await pool.promise().query(
+                    queryFriendId,
+                    [yourId, yourFriendId, yourFriendId, yourId]
+                );
+
+                const friendShipId = getFriendShipId[0]?.id ?? '';
+                if (!friendShipId) {
+                    console.log('Không tìm thấy friendShipId.');
+                    return;
+                }
+
+                const topic = '/topics/friend-' + friendShipId;
+                console.log('Topic: ', topic);
+
+                // Lấy danh sách rooms từ socket adapter
+                const rooms = foregroundNotifyNameSpace.adapter.rooms;
+
+
+                // Lấy socketId từ yourId
+                const yourSocketIdSet = rooms.get(yourId);
+                if (!yourSocketIdSet || yourSocketIdSet.size === 0) {
+                    console.log(`Không tìm thấy socketId cho yourId: ${yourId}`);
+                    return;
+                }
+
+                const yourSocketId = [...yourSocketIdSet][0]; // Lấy phần tử đầu tiên từ Set
+                console.log('Your socket id: ', yourSocketId, ' status: ', status);
+                await updateTopicEnable({
+                    currentDevice,
+                    newEnableStatus: status,
+                    topicName: topic,
+                    userId: yourId
+                })
+                // Kiểm tra nếu topic đã tồn tại
+                if (rooms.has(topic)) {
+                    const topicSet = rooms.get(topic);
+
+                    if (status) {
+                        // Nếu status = true, thêm yourSocketId vào topic
+                        if (!topicSet.has(yourSocketId)) {
+                            topicSet.add(yourSocketId);
+                            console.log(`Đã thêm yourSocketId: ${yourSocketId} vào topic: ${topic}`);
+                        } else {
+                            console.log(`yourSocketId: ${yourSocketId} đã tồn tại trong topic: ${topic}`);
+                        }
+                    } else {
+                        // Nếu status = false, xóa yourSocketId khỏi topic
+                        if (topicSet.has(yourSocketId)) {
+                            topicSet.delete(yourSocketId);
+                            console.log(`Đã xóa yourSocketId: ${yourSocketId} khỏi topic: ${topic}`);
+                        }
+
+                    }
+                } else {
+                    if (status) {
+                        // Nếu topic chưa tồn tại và status = true, tạo mới topic với yourSocketId
+                        rooms.set(topic, new Set([yourSocketId]));
+                        console.log(`Đã tạo mới topic: ${topic} với yourSocketId: ${yourSocketId}`);
+                    } else {
+                        console.log(`Không có hành động vì topic: ${topic} chưa tồn tại và status = false.`);
+                    }
+                }
+
+                console.log('Cập nhật Rooms: ', rooms);
+            } catch (error) {
+                console.error('Lỗi xử lý toggle notification: ', error);
+            }
+        });
+
+
         socket.on("disconnect", () => {
             const disconnectedUserId = socketToUser.get(socket.id); // Optimized lookup
 
@@ -215,4 +292,72 @@ const friendNameSpace = (io) => {
     });
 };
 
+
+async function updateTopicEnable({ userId, topicName, newEnableStatus, currentDevice }) {
+    try {
+
+        const result = await NotifyTopicModel.updateOne(
+            {
+                userId: userId,
+                "topics.name": topicName
+            },
+            {
+                $set: { "topics.$.enable": newEnableStatus }
+            }
+        );
+
+        if (result.modifiedCount > 0) {
+            if (currentDevice === 'ANDROID') {
+                const getAndroidTokens = await NotifyTopicModel.aggregate([
+                    { $match: { userId: userId } },
+                    { $unwind: "$topics" }, // Tách mảng topics
+                    { $match: { "topics.name": topicName } }, // Lọc theo tên topic
+                    { $unwind: "$topics.subscribedDeviceTokens" }, // Tách mảng subscribedDeviceTokens
+                    {
+                        $match: {
+                            "topics.subscribedDeviceTokens.deviceType": "ANDROID"
+                        }
+                    }, // Lọc token có deviceType là ANDROID
+                    {
+                        $project: {
+                            _id: 0,
+                            token: "$topics.subscribedDeviceTokens.token"
+                        }
+                    } // Chỉ lấy token
+                ]);
+                console.log('Android token: ', getAndroidTokens)
+                if (newEnableStatus) {
+                    getAndroidTokens.forEach(item => {
+                        subscribeToTopic(item.token, topicName)
+                        .then(res => {
+                            console.log('Res subscribe update status notify friend: ', res)
+                        })
+                        .catch(e => {
+                            console.log('ERROR subscribe update status notify friend: ', e)
+                        })
+                    })
+
+                }else{
+                    getAndroidTokens.forEach(item => {
+                        unsubscribeFromTopic(item.token, topicName)
+                            .then(res => {
+                                console.log('Res unsubscribe update status notify friend: ', res)
+                            })
+                            .catch(e => {
+                                console.log('ERROR unsubscribe update status notify friend: ', e)
+                            })
+                    })
+                }
+            }
+            console.log(`Successfully updated topic ${topicName} for user ${userId}.`);
+        } else {
+            console.log(`No topic found with name ${topicName} for user ${userId}.`);
+        }
+
+        return result;
+    } catch (error) {
+        console.error("Error updating topic enable status:", error);
+        throw error;
+    }
+}
 module.exports = { friendNameSpace };

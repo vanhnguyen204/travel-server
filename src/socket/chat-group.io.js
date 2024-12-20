@@ -59,7 +59,7 @@ const chatNamespace = (io) => {
           avatar_url: senderAvatarUrl
         }
         // console.log('Avatar sender: ', responseMessage)
-        namespace.to(groupId).emit('receive-message-chat-group', responseMessage);
+        namespace.emit('receive-message-chat-group', responseMessage);
         const topic = '/topics/group-' + groupId
         const [rows] = await pool.promise().query(
           queryMemberInGroup,
@@ -73,10 +73,9 @@ const chatNamespace = (io) => {
         );
 
         console.log(filteredUsersNotInRoom);
-``
         filteredUsersNotInRoom.forEach((user) => {
           const { user_id } = user;
-          // console.log('Send notify to: ', user_id)
+          console.log('Send notify to: ', user_id)
           foregroundNamespace.to(user_id).emit('group-chat-notify-foreground', {
             title: groupName,
             message: userSendName + ': ' + content,

@@ -70,7 +70,11 @@ const chatFriendNameSpace = (io) => {
                     message,
                     messageType,
                 });
-                namespace.to(topic).emit("friend-chat-receive-message", res);
+                namespace.to(topic).emit("friend-chat-receive-message", {
+                    ...res.toObject(),
+                    avatar_url: `data:image/jpeg;base64,${getCurrentMapUser.avatar}`,
+                    
+                });
                 if (!checkIsFocused || !checkIsFocused?.isFocusedOnChatScreen) {
 
                     foregroundNotifyNameSpace.to(topic).emit('notify-foreground-chat-friend', {

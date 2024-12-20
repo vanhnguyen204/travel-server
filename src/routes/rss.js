@@ -5,8 +5,9 @@ const { parseRSS } = require('../rss/index.js');
 const route = express.Router();
 
 const moment = require('moment');
+const { authenticateToken } = require('../middleware/auth/authenticateToken.js');
 
-route.get('/', async (req, res, next) => {
+route.get('/',  async (req, res, next) => {
     const rssUrl = 'https://vnexpress.net/rss/du-lich.rss';
 
     try {

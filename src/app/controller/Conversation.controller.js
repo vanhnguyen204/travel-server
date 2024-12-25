@@ -15,7 +15,14 @@ class ConversationController {
             };
 
             const result = await Conversation.paginate(
-                { 'participants.userId': userId },
+                {
+                    'participants': {
+                        $elemMatch: {
+                            userId: userId,
+                            isDelete: false  // Lọc người dùng có isDelete là false
+                        }
+                    }
+                },
                 options
             );
 
@@ -107,10 +114,10 @@ class ConversationController {
 
     async deleteConversation(req, res, next) {
         try {
-            const { conversationId } = req.params;
+            const { conversationId, userId } = req.query;
 
             // Kiểm tra nếu conversation tồn tại
-            const conversation = await Conversation.findById(conversationId);
+            const conversation = await Conversation.findById(conversationId).exec();
             if (!conversation) {
                 return res.status(404).json({
                     message: 'Conversation not found',
@@ -118,22 +125,45 @@ class ConversationController {
                 });
             }
 
-            // Xóa toàn bộ tin nhắn liên quan đến conversation
-            await Message.deleteMany({ conversationId });
+            // Tìm người dùng hiện tại trong participants và cập nhật `isDelete = true` nếu chưa phải là người cuối cùng
+            const participantIndex = conversation.participants.findIndex(participant => participant.userId === parseInt(userId));
+            console.log('participantIndex: ', participantIndex)
+            conversation.participants[participantIndex].isDelete = true;
 
-            // Xóa conversation
-            await conversation.remove();
+            // Lưu lại thay đổi
+            await conversation.save();
 
-            res.status(200).json({
-                message: 'Conversation and related messages deleted successfully',
+            // Kiểm tra xem tất cả participants có `isDelete = true` không
+            const allDeleted = conversation.participants.every(participant => participant.isDelete);
+
+            if (allDeleted) {
+                // Xóa tất cả tin nhắn liên quan đến conversation
+                await Message.deleteMany({ referenceId: conversationId });
+
+                // Xóa conversation
+                await Conversation.deleteOne({ _id: conversationId });
+
+                return res.status(200).json({
+                    message: 'Conversation and related messages deleted successfully',
+                    status: true,
+                });
+            }
+
+            return res.status(200).json({
+                message: 'User deleted from participants.',
                 status: true,
             });
         } catch (error) {
             console.error('Error deleting conversation:', error);
-            res.status(500).json({ error: error.message, status: false });
+            if (!res.headersSent) {
+                res.status(500).json({ error: error.message, status: false });
+            }
             next(error);
         }
     }
+
+
+
 }
 
 module.exports = new ConversationController();

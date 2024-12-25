@@ -18,9 +18,25 @@ const { foregroundNotifyNameSpace } = require('./socket/foreground-notify.io.js'
 const routes = require('./routes/index.js')
 const app = express();
 const { ip } = require('./utils/ip.js');
+const { updateGroupIdsAndListen } = require('./rabbitmq/eventStartListening.js');
 
+const RabbitMQScheduler = require('./rabbitmq/index.js');
+const reportNameSpace = require('./socket/report.io.js');
+//connect rabbit-mq
+// const rabbit_mq = new RabbitMQScheduler()
+RabbitMQScheduler.connect()
+.then(() => {
+  updateGroupIdsAndListen()
+    .then(res => {
 
-
+    })
+    .catch(e => {
+      console.log('Error listen queue: ', e)
+    })
+})
+.catch(e => {
+  console.log('Error connect rabbit-mq: ', e)
+});
 // Kết nối tới Redis
 connect()
 
@@ -36,15 +52,6 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
-// app.use('/rss',async (req, res) => {
-//   const rssUrl = 'https://vnexpress.net/rss/du-lich.rss';
-//   try {
-//     const data = await parseRSS(rssUrl);
-//     res.send(data);
-//   } catch (error) {
-//     res.status(500).json({ error: error.message });
-//   }
-// })
 routes(app)
 
 app.use((req, res, next) => {
@@ -75,6 +82,9 @@ chatFriendNameSpace(io);
 foregroundNotifyNameSpace(io);
 videoCallNameSpace(io)
 groupNameSpace(io)
+
+reportNameSpace(io)
+
 server.listen(port, ip, () => {
   console.log(`Server is listening at http://${ip}:${port}`);
 });

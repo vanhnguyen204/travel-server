@@ -10,6 +10,10 @@ const ConversationSchema = new Schema(
                     type: Number,
                     required: true,
                 },
+                isDelete: {
+                    type: Boolean,
+                    default: false,
+                },
             },
         ],
         lastMessage: {

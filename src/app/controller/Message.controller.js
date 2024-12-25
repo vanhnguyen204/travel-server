@@ -35,6 +35,15 @@ class MessageController {
                 conversation.lastMessageType = messageType;
                 conversation.lastMessageAt = new Date();
             }
+            conversation.participants = conversation.participants.map(item => {
+                if (item.userId === senderId) {
+                    return {
+                        userId: senderId,
+                        isDelete: false
+                    }
+                }
+                return item
+            })
             await conversation.save();
 
             // Save new message

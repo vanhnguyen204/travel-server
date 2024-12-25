@@ -23,7 +23,7 @@ const NotificationSchema = new Schema(
         type: {
             type: String,
             default: '',
-            enum: ['group', 'friend']
+            enum: ['group', 'friend', 'post']
         },
         recipients: [
             {

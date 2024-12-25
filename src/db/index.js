@@ -7,7 +7,7 @@ const db_url = 'mongodb://localhost:27017/travel-with-me';
 // Kết nối MongoDB
 const connectMongodb = () => {
     mongoose.connect(db_url)
-        .then(() => console.log('Connected mongodb "Travel with me"!')).catch(e => console.log(e));
+        .then(() => console.log('Mongodb: Connected mongodb "Travel with me"!')).catch(e => console.log(e));
 }
 
 // Kết nối MySQL
@@ -25,7 +25,7 @@ const pool = mysql.createPool({
 const testMysqlConnection = async () => {
     try {
         const [rows] = await pool.promise().query('SELECT 1');
-        console.log('Connected to MySQL successfully!');
+        console.log('MySQL: Connected to MySQL successfully!');
     } catch (error) {
         console.error('MySQL connection error:', error);
     }

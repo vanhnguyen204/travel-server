@@ -5,7 +5,7 @@ const { authenticateToken } = require('../middleware/auth/authenticateToken.js')
 router.get('/:userId',
     authenticateToken,
     ConversationController.getConversations);
-router.delete('/:conversationId',
+router.delete('/',
     authenticateToken,
     ConversationController.deleteConversation);
 router.patch('/mark-as-read',

@@ -8,13 +8,13 @@ async function connect() {
     socket: { host: '127.0.0.1', port: 6379 },
   });
 
-  client.on('connect', () => console.log('Connected to Redis'));
-  client.on('error', (err) => console.error('Redis error:', err));
+  client.on('connect', () => console.log('REDIS: Connected to Redis'));
+  client.on('error', (err) => console.error('REDIS: Redis error:', err));
 
   try {
     await client.connect();
   } catch (err) {
-    console.error('Error connecting to Redis:', err);
+    console.error('REDIS: Error connecting to Redis:', err);
   }
 }
 
@@ -25,16 +25,16 @@ async function isConnected() {
 
 // Set key (có thể thêm TTL)
 async function setData(key, data, ttlInSeconds = null) {
-  if (!await isConnected()) return console.log('Redis client is not connected');
+  if (!await isConnected()) return console.log('REDIS: Redis client is not connected');
   try {
     if (ttlInSeconds) {
       await client.set(key, JSON.stringify(data), { EX: ttlInSeconds });
     } else {
       await client.set(key, JSON.stringify(data));
     }
-    console.log(`Data set for key: ${key}`);
+    console.log(`REDIS: Data set for key: ${key}`);
   } catch (err) {
-    console.error('Error setting data:', err);
+    console.error('REDIS: Error setting data:', err);
   }
 }
 
@@ -47,7 +47,7 @@ async function getData(key) {
     }
     return JSON.parse(data); // Chuyển chuỗi JSON thành đối tượng/mảng
   } catch (error) {
-    console.error("Error getting data:", error);
+    console.error("REDIS: Error getting data:", error);
     return null;
   }
 }
@@ -58,7 +58,7 @@ async function keyExists(key) {
   try {
     return (await client.exists(key)) === 1;
   } catch (err) {
-    console.error('Error checking key existence:', err);
+    console.error('REDIS: Error checking key existence:', err);
     return false;
   }
 }
@@ -82,9 +82,9 @@ async function deleteKey(key) {
   if (!await isConnected()) return;
   try {
     await client.del(key);
-    console.log(`Key deleted: ${key}`);
+    console.log(`REDIS: Key deleted: ${key}`);
   } catch (err) {
-    console.error('Error deleting key:', err);
+    console.error('REDIS: Error deleting key:', err);
   }
 }
 
@@ -95,13 +95,13 @@ async function pushToList(key, values) {
       const pipeline = client.multi(); // Tạo batch commands
       values.forEach(value => pipeline.rPush(key, JSON.stringify(value)));
       await pipeline.exec();
-      console.log(`Array added to list: ${key}`);
+      console.log(`REDIS: Array added to list: ${key}`);
     } else {
       await client.rPush(key, JSON.stringify(values));
-      console.log(`Value added to list: ${key}`);
+      console.log(`REDIS: Value added to list: ${key}`);
     }
   } catch (err) {
-    console.error('Error pushing to list:', err);
+    console.error('REDIS: Error pushing to list:', err);
   }
 }
 
@@ -112,7 +112,7 @@ async function getList(key) {
     const list = await client.lRange(key, 0, -1);
     return list.map((item) => JSON.parse(item));
   } catch (err) {
-    console.error('Error getting list:', err);
+    console.error('REDIS: Error getting list:', err);
     return [];
   }
 }
@@ -122,9 +122,9 @@ async function addToSet(key, value) {
   if (!await isConnected()) return;
   try {
     await client.sAdd(key, value);
-    console.log(`Value added to set: ${key}`);
+    console.log(`REDIS: Value added to set: ${key}`);
   } catch (err) {
-    console.error('Error adding to set:', err);
+    console.error('REDIS: Error adding to set:', err);
   }
 }
 
@@ -133,7 +133,7 @@ async function getSetMembers(key) {
   try {
     return await client.sMembers(key);
   } catch (err) {
-    console.error('Error getting set members:', err);
+    console.error('REDIS: Error getting set members:', err);
     return [];
   }
 }
@@ -143,9 +143,9 @@ async function publishMessage(channel, message) {
   if (!await isConnected()) return;
   try {
     await client.publish(channel, JSON.stringify(message));
-    console.log(`Message published to channel: ${channel}`);
+    console.log(`REDIS: Message published to channel: ${channel}`);
   } catch (err) {
-    console.error('Error publishing message:', err);
+    console.error('REDIS: Error publishing message:', err);
   }
 }
 
@@ -154,15 +154,15 @@ async function subscribeToChannel(channel) {
   const subscriber = client.duplicate();
   await subscriber.connect();
 
-  subscriber.on('message', (chan, message) => {
-    console.log(`Received from ${chan}:`, JSON.parse(message));
+  subscriber.on('REDIS: message', (chan, message) => {
+    console.log(`REDIS: Received from ${chan}:`, JSON.parse(message));
   });
 
   try {
     await subscriber.subscribe(channel);
-    console.log(`Subscribed to channel: ${channel}`);
+    console.log(`REDIS: Subscribed to channel: ${channel}`);
   } catch (err) {
-    console.error('Error subscribing to channel:', err);
+    console.error('REDIS: Error subscribing to channel:', err);
   }
 }
 
@@ -171,9 +171,9 @@ async function disconnect() {
   if (!await isConnected()) return;
   try {
     await client.quit();
-    console.log('Disconnected from Redis');
+    console.log('REDIS: Disconnected from Redis');
   } catch (err) {
-    console.error('Error disconnecting:', err);
+    console.error('REDIS: Error disconnecting:', err);
   }
 }
 

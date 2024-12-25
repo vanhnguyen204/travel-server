@@ -2,7 +2,8 @@ const NotifyTopic = require('../models/Notify-Topic.model.js');
 const { pool } = require('../../db/index.js');
 const NotifyTopicModel = require('../models/Notify-Topic.model.js');
 const mongoose = require('mongoose')
-const { subscribeToTopic, unsubscribeFromTopic } = require('../../firebase/notification-firebase.js')
+const { subscribeToTopic, unsubscribeFromTopic } = require('../../firebase/notification-firebase.js');
+const { enable } = require('../../app.js');
 const queryFriendId = `
 SELECT id
 FROM friend_ship
@@ -28,7 +29,7 @@ class NotifyTopicController {
                 return res.status(404).json({ status: false, data: null, message: 'User not found in mysql' });
             }
             const [checkGroupExist] = await pool.promise().query('SELECT * FROM m_group where id = ?', [groupId]);
-            console.log('Check group: ', checkGroupExist);
+            // console.log('Check group: ', checkGroupExist);
 
             if (checkGroupExist.length === 0) {
                 return res.status(404).json({ status: false, data: null, message: 'Group not found in mysql' });
@@ -39,7 +40,7 @@ class NotifyTopicController {
                     'topics.referenceId': groupId
                 },
                 {
-                    _id: 1 
+                    _id: 1
                 }
             ).lean();
 
@@ -372,25 +373,41 @@ class NotifyTopicController {
         }
     }
 
-    toggleNotifyTopicFriendChat(req, res, next) {
+    async checkEnableNotificationGroup(req, res, next) {
         try {
-            const { conversationId, userId } = req;
+            const { groupId, userId } = req.query;
+            const topicName = '/topics/group-' + groupId;
+            const resCheck = await NotifyTopic.findOne(
+                { userId: userId },
+                {
+                    topics: {
+                        $filter: {
+                            input: "$topics", // Mảng cần lọc
+                            as: "topic",      // Biến đại diện cho từng phần tử trong mảng
+                            cond: { $eq: ["$$topic.name", topicName] } // Điều kiện lọc
+                        }
+                    }
+                }
+            );
+
+            // console.log('resCheck: ', resCheck.topics);
+            if (resCheck.topics.length === 0) {
+                return res.status(400).json({ status: false, data: null, message: 'Không tìm thấy topics' });
+            }
+            return res.status(200).json({
+                message: 'Success',
+                data: {
+                    enable: resCheck.topics[0].enable
+                },
+                status: true
+            })
         } catch (error) {
-            console.log('Error toggle Notify Topic Friend', error);
-            res.status(500).json(error)
+            console.log('Error check Enable Notification Group', error);
+            res.status(500).json({ status: false, data: null, message: 'Internal server error' });
             next(error)
         }
     }
 
-    toggleNotifyTopicGroup() {
-        try {
-
-        } catch (error) {
-            console.log('Error toggle Notify Topic Group', error);
-            res.status(500).json(error)
-            next(error)
-        }
-    }
 }
 
 module.exports = new NotifyTopicController();

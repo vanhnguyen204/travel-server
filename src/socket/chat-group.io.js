@@ -73,19 +73,15 @@ const chatNamespace = (io) => {
         );
 
         console.log(filteredUsersNotInRoom);
-        filteredUsersNotInRoom.forEach((user) => {
-          const { user_id } = user;
-          console.log('Send notify to: ', user_id)
-          foregroundNamespace.to(user_id).emit('group-chat-notify-foreground', {
-            title: groupName,
-            message: userSendName + ': ' + content,
-            senderId,
-            payload: {
-              groupId,
+        foregroundNamespace.to(topic).emit('group-chat-notify-foreground', {
+          title: groupName,
+          message: userSendName + ': ' + content,
+          senderId,
+          payload: {
+            groupId,
 
-            }
-          })
-        });
+          }
+        })
 
 
         await sendPushNotificationToTopic(topic, userSendName + ': ' + content, groupName, {

@@ -170,7 +170,12 @@ const friendNameSpace = (io) => {
                         title: 'Thông báo',
                         message: `${yourName} đã chấp nhận yêu cầu kết bạn.`,
                         type: 'friend',
-                        imageBase64: imageBase64
+                        imageBase64: imageBase64,
+                        newFriend: {
+                            yourAvatar,
+                            yourName,
+                            yourId
+                        }
                     });
                 } else {
                     // Nếu bạn bè không trực tuyến, gửi thông báo đẩy
@@ -195,7 +200,7 @@ const friendNameSpace = (io) => {
 
         socket.on('friend-toggle-enable-notification', async (data) => {
             const { yourId, yourFriendId, status, currentDevice } = data;
-            console.log('Data: ', data);
+            console.log('Data toggle enable notification --- friend: ', data);
 
             try {
                 // Truy vấn để lấy friendShipId
@@ -212,7 +217,12 @@ const friendNameSpace = (io) => {
 
                 const topic = '/topics/friend-' + friendShipId;
                 console.log('Topic: ', topic);
-
+                await updateTopicEnable({
+                    currentDevice,
+                    newEnableStatus: status,
+                    topicName: topic,
+                    userId: yourId
+                })
                 // Lấy danh sách rooms từ socket adapter
                 const rooms = foregroundNotifyNameSpace.adapter.rooms;
 
@@ -226,12 +236,7 @@ const friendNameSpace = (io) => {
 
                 const yourSocketId = [...yourSocketIdSet][0]; // Lấy phần tử đầu tiên từ Set
                 console.log('Your socket id: ', yourSocketId, ' status: ', status);
-                await updateTopicEnable({
-                    currentDevice,
-                    newEnableStatus: status,
-                    topicName: topic,
-                    userId: yourId
-                })
+
                 // Kiểm tra nếu topic đã tồn tại
                 if (rooms.has(topic)) {
                     const topicSet = rooms.get(topic);
@@ -329,15 +334,15 @@ async function updateTopicEnable({ userId, topicName, newEnableStatus, currentDe
                 if (newEnableStatus) {
                     getAndroidTokens.forEach(item => {
                         subscribeToTopic(item.token, topicName)
-                        .then(res => {
-                            console.log('Res subscribe update status notify friend: ', res)
-                        })
-                        .catch(e => {
-                            console.log('ERROR subscribe update status notify friend: ', e)
-                        })
+                            .then(res => {
+                                console.log('Res subscribe update status notify friend: ', res)
+                            })
+                            .catch(e => {
+                                console.log('ERROR subscribe update status notify friend: ', e)
+                            })
                     })
 
-                }else{
+                } else {
                     getAndroidTokens.forEach(item => {
                         unsubscribeFromTopic(item.token, topicName)
                             .then(res => {
@@ -360,4 +365,4 @@ async function updateTopicEnable({ userId, topicName, newEnableStatus, currentDe
         throw error;
     }
 }
-module.exports = { friendNameSpace };
+module.exports = { friendNameSpace, updateTopicEnable };

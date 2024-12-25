@@ -15,4 +15,8 @@ router.post('/friend',
 router.delete('/friend',
     authenticateToken,
     NotifyTopicController.deleteTopicWhenDeleteFriend);
+
+router.get('/check-enable-notify-group',
+    authenticateToken,
+    NotifyTopicController.checkEnableNotificationGroup)
 module.exports = router;

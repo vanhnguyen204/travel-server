@@ -4,6 +4,8 @@ const MessageController = require('../app/controller/Message.controller.js');
 const users = new Map();
 const { friendChat, friendConversation } = require('./socket-key.io.js');
 const { pool } = require('../db/index.js');
+const MessageModel = require('../app/models/Message.model.js');
+const ConversationModel = require('../app/models/Conversation.model.js');
 const queryFriendId = `
 SELECT id
 FROM friend_ship
@@ -38,7 +40,7 @@ const chatFriendNameSpace = (io) => {
                 const [getFriendId] = await pool.promise().query(queryFriendId, [senderId, receiverId, receiverId, senderId]);
                 const { id } = getFriendId[0];
                 let avatarBase64 = yourAvatar ? await fetchImageAsBase64(yourAvatar) : ''
-               
+
                 if (id) {
                     const topic = '/topics/friend-' + id
                     socket.join(topic);
@@ -57,13 +59,10 @@ const chatFriendNameSpace = (io) => {
 
 
                 const checkIsFocused = users.get(receiverId);
-                // console.log('checkIsFocused: ', checkIsFocused)
-                // console.log('Users: ', users)
+
                 const getCurrentMapUser = users.get(senderId);
-                // console.log('getCurrentMapUser: ', getCurrentMapUser)
                 const topic = '/topics/friend-' + getCurrentMapUser.friendId;
-                // console.log('topic: ', topic)
-                // Lưu tin nhắn vào cơ sở dữ liệu
+
                 const res = await MessageController.createMessage({
                     senderId,
                     receiverId,
@@ -73,7 +72,7 @@ const chatFriendNameSpace = (io) => {
                 namespace.to(topic).emit("friend-chat-receive-message", {
                     ...res.toObject(),
                     avatar_url: `data:image/jpeg;base64,${getCurrentMapUser.avatar}`,
-                    
+
                 });
                 if (!checkIsFocused || !checkIsFocused?.isFocusedOnChatScreen) {
 
@@ -92,6 +91,48 @@ const chatFriendNameSpace = (io) => {
 
             } catch (error) {
                 console.error("Error sending message:", error);
+            }
+        });
+
+        socket.on('friend-delete-message', async (data) => {
+            try {
+                const { _id, userId } = data;
+
+                // Lấy thông tin người dùng hiện tại
+                const getCurrentMapUser = users.get(userId);
+                if (!getCurrentMapUser) {
+                    console.error('User not found for senderId:', senderId);
+                    return;
+                }
+
+                const topic = `/topics/friend-${getCurrentMapUser.friendId}`;
+
+                // Cập nhật tin nhắn
+                const updatedMessage = await MessageModel.findOneAndUpdate(
+                    { _id: _id },
+                    { message: 'Đã bị gỡ', messageType: 'text' },
+                    { new: true } // Trả về tài liệu đã cập nhật
+                );
+                console.log('updatedMessage: ',)
+                if (!updatedMessage) {
+                    console.error('Message not found with id:', _id);
+                    return;
+                }
+                await ConversationModel.findOneAndUpdate({
+                    _id: updatedMessage.referenceId.toString()
+                }, {
+                    lastMessage: 'Đã bị gỡ',
+                    lastMessageType: 'text',
+                    lastMessageAt: new Date(),
+                })
+                // Emit sự kiện với thông tin mới
+                namespace.to(topic).emit('friend-delete-message', {
+                    _id
+
+                });
+
+            } catch (error) {
+                console.error('Error handling friend-delete-message:', error);
             }
         });
 

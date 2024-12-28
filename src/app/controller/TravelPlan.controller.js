@@ -34,7 +34,6 @@ class TravelPlanController {
                 }
             }
 
-            // Nếu hợp lệ, tiếp tục xử lý
             res.status(200).json({
                 message: 'Kế hoạch hợp lệ.',
             });

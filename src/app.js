@@ -89,5 +89,9 @@ server.listen(port, ip, () => {
   console.log(`Server is listening at http://${ip}:${port}`);
 });
 
+app.use('/', (req, res, next) => {
+  res.send('<h1>HELLO SERVER NODEJS</h1>')
+})
+
 module.exports = app;
 

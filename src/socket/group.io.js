@@ -50,7 +50,6 @@ const groupNameSpace = (io) => {
         })
         socket.on('group-accept-user-join', async (data) => {
             const { groupId, groupName, memberId } = data;
-
             const topic = '/topics/group-' + groupId;
             const rooms = foregroundNamespace.adapter.rooms;
             const getRoomOfGroup = rooms.get(topic);

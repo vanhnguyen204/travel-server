@@ -46,12 +46,12 @@ const authenticateToken = async (req, res, next) => {
         req.body.user = decoded;
         next();
     } catch (err) {
-        res.status(400).json({
-            status: 400,
+        res.status(401).json({
+            status: 401,
             message: 'Xác thực thất bại.',
             cause: err.message === 'jwt expired' ? 'Token đã hết hạn.' : 'Token không hợp lệ.'
         });
     }
 };
 
-module.exports = { authenticateToken };
+module.exports = { authenticateToken, secretKey };

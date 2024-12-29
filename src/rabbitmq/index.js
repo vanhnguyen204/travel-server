@@ -17,7 +17,9 @@ class RabbitMQScheduler {
         RabbitMQScheduler.instance = this; // Chỉ tạo 1 instance
 
         // Kết nối RabbitMQ ngay khi tạo instance
-        this.connect();
+        this.connect({
+            heartbeat: 60  
+        });
     }
 
     async connect() {

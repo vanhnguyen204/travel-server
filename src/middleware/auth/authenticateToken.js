@@ -1,31 +1,51 @@
-const axios = require('axios'); // Thư viện để gửi yêu cầu HTTP (nếu cần)
+const { jwtVerify } = require('jose'); // Thư viện jose
+const { TextEncoder } = require('util'); // Để mã hóa secret key
 const { ip } = require('../../utils/ip.js'); // Đường dẫn tới file utils/ip.js
-const jwt = require('jsonwebtoken');
 
+// Khóa bí mật để ký và xác thực token
 const secretKey = '/q5Il7oI//Hiv4va97MQAtYOaktNo188-23WY12YVRCRGBEwYECRg0T6YcrEzYWb';
 
-// Hàm verify token
+/**
+ * Hàm verify token sử dụng jose
+ * @param {string} token - Token cần xác thực
+ * @returns {Promise<object>} Payload nếu token hợp lệ
+ */
 const verifyToken = async (token) => {
-    return new Promise((resolve, reject) => {
-        jwt.verify(token, secretKey, (err, decoded) => {
-            if (err) {
-                reject(err);
-            } else {
-                resolve(decoded);
-            }
+    try {
+        const encoder = new TextEncoder();
+        const key = encoder.encode(secretKey);
+
+        // Xác minh token, bỏ qua kiểm tra `exp`
+        const { payload } = await jwtVerify(token, key, {
+            algorithms: ['HS512'], // Đảm bảo thuật toán phù hợp
+            clockTolerance: 0,    // Tolerance cho thời gian (nếu cần)
         });
-    });
+
+        // Kiểm tra thủ công claim `exp`
+        const currentTime = Math.floor(Date.now() / 1000);
+        if (payload.exp && payload.exp < currentTime) {
+            throw new Error('Token đã hết hạn.');
+        }
+
+        return payload;
+    } catch (err) {
+        throw new Error(err.message || 'Token không hợp lệ');
+    }
 };
 
-// Middleware xác thực token
+
+/**
+ * Middleware xác thực token
+ */
 const authenticateToken = async (req, res, next) => {
-    const token = req.header('Authorization')?.split(' ')[1];
+    const authHeader = req.header('Authorization');
+    const token = authHeader?.split(' ')[1];
 
     if (!token) {
         return res.status(401).json({
             status: 401,
             message: 'Không có quyền truy cập.',
-            cause: 'Không thể kiểm tra người dùng.'
+            cause: 'Thiếu token trong yêu cầu.'
         });
     }
 
@@ -33,7 +53,10 @@ const authenticateToken = async (req, res, next) => {
         const decoded = await verifyToken(token);
 
         // Kiểm tra ngày hết hạn của token
-        const currentTime = Math.floor(Date.now() / 1000); // Lấy thời gian hiện tại (giây)
+        const currentTime = Math.floor(Date.now() / 1000); // Thời gian hiện tại (giây)
+        console.log('Current time:', currentTime);
+        console.log('Decoded token expiration:', decoded.exp);
+
         if (decoded.exp && decoded.exp < currentTime) {
             return res.status(401).json({
                 status: 401,
@@ -42,14 +65,15 @@ const authenticateToken = async (req, res, next) => {
             });
         }
 
-        // Gắn thông tin user vào request
+        // Gắn thông tin user vào request để sử dụng ở các middleware khác
         req.body.user = decoded;
-        next();
+        next(); // Chuyển sang middleware hoặc route tiếp theo
     } catch (err) {
+        console.error('Error verifying token:', err);
         res.status(401).json({
             status: 401,
             message: 'Xác thực thất bại.',
-            cause: err.message === 'jwt expired' ? 'Token đã hết hạn.' : 'Token không hợp lệ.'
+            cause: err.message === 'JWTExpired' ? 'Token đã hết hạn.' : 'Token không hợp lệ.'
         });
     }
 };

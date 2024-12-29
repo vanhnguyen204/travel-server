@@ -1,5 +1,5 @@
 const { pool } = require("../../db");
-const { getPostOfUserQuery } = require("../models/Post.model");
+const { getPostOfUserQuery, getPostById } = require("../models/Post.model");
 
 
 class PostController {
@@ -35,12 +35,13 @@ class PostController {
     }
     async toggleReaction(req, res, next) {
         try {
-            const { postId, userId, reactionType } = req.body;
-
+            const { postId, userId, reactionType = '' } = req.body;
+console.log('Body toggle reaction: ', req.body)
+            const emotions = ['LIKE', 'LOVE', 'HAHA', 'WOW', '', 'ANGRY', 'SAD']
             // Kiểm tra dữ liệu đầu vào
-            if (!postId || !userId || reactionType === undefined) {
+            if (!postId || !userId || !emotions.includes(reactionType)) {
                 return res.status(400).json({
-                    message: 'Yêu cầu userId, postId và reaction type hợp lệ cho request params để sử dụng API này.',
+                    message: "Yêu cầu userId, postId và reaction_type(['LIKE', 'LOVE', 'HAHA', 'WOW', '', 'ANGRY', 'SAD']) hợp lệ cho request params để sử dụng API này.",
                     status: false
                 });
             }
@@ -100,10 +101,91 @@ class PostController {
             }
         } catch (error) {
             console.error('Error handling toggle reaction:', error);
-            return res.status(500).json({
+
+            res.status(500).json({
                 message: 'Error handling toggle reaction: ' + error.message,
                 status: false
             });
+            next();
+        }
+    }
+
+    async sharePost(req, res, next) {
+        try {
+            const { shareByUserId, postId, content } = req.body;
+            console.log('Post share: ', req.body)
+            if (!shareByUserId || !postId || !content) {
+                return res.status(400).json({
+                    message: 'Yêu cầu nhập đầy đủ shareByUserId, postId, content để chia sẻ bài viết.',
+                    status: false
+                })
+            }
+            const [getOriginalPost] = await pool.promise().query('Select * from post where id = ? ', [+postId])
+
+            if (getOriginalPost.length === 0) {
+                return res.status(404).json({
+                    message: 'Không tìm thấy bài viết để chia sẻ.',
+                    status: false
+                })
+            }
+            const { id, ...rest } = getOriginalPost[0]
+            let newPost = {};
+            newPost = {
+                ...rest,
+                share_content: content,
+                share_by_id: shareByUserId,
+                share_time: new Date(),
+                status_share: 'PUBLIC',
+                is_share: 1,
+                post_id: postId,
+                create_time: new Date()
+            }
+
+            const [insertResult] = await pool.promise().query(
+                `INSERT INTO post (
+                content,
+                create_time,
+                is_share,
+                location_id,
+                post_id,
+                share_content,
+                share_by_id,
+                share_time,
+                status,
+                status_share,
+                user_id,
+                delflag
+                )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? , ?)`,
+                [
+                    newPost.content,
+                    newPost.create_time,
+                    newPost.is_share,
+                    newPost.location_id,
+                    newPost.post_id,
+                    newPost.share_content,
+                    newPost.share_by_id,
+                    newPost.share_time,
+                    newPost.status,
+                    newPost.status_share,
+                    newPost.user_id,
+                    newPost.delflag,
+
+                ]
+            );
+            const { data } = await getPostById(insertResult.insertId, shareByUserId)
+            return res.status(200).json({
+                message: 'DONE',
+                data: data,
+                status: true
+            })
+        } catch (error) {
+            console.error('Error handling share post reaction:', error);
+            res.status(500).json({
+                message: 'Error handling share post reaction: ' + error.message,
+                status: false
+            });
+            next();
         }
     }
 

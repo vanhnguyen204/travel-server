@@ -1,6 +1,7 @@
 const { jwtVerify } = require('jose'); // Thư viện jose
 const { TextEncoder } = require('util'); // Để mã hóa secret key
 const { ip } = require('../../utils/ip.js'); // Đường dẫn tới file utils/ip.js
+const { pool } = require('../../db/index.js');
 
 // Khóa bí mật để ký và xác thực token
 const secretKey = '/q5Il7oI//Hiv4va97MQAtYOaktNo188-23WY12YVRCRGBEwYECRg0T6YcrEzYWb';
@@ -54,20 +55,26 @@ const authenticateToken = async (req, res, next) => {
 
         // Kiểm tra ngày hết hạn của token
         const currentTime = Math.floor(Date.now() / 1000); // Thời gian hiện tại (giây)
-        console.log('Current time:', currentTime);
-        console.log('Decoded token expiration:', decoded.exp);
-
-        if (decoded.exp && decoded.exp < currentTime) {
+        // console.log('Current time:', currentTime);
+        // console.log('Decoded token expiration:', decoded);
+        const [checkUserIsLock] = await pool.promise().query('Select * from user where email = ? ', decoded.iss );
+        if (checkUserIsLock[0].is_locked !== 'OPEN') {
             return res.status(401).json({
-                status: 401,
-                message: 'Token đã hết hạn.',
+                status: false,
+                message: 'Tài khoản của bạn đã bị khoá, vui lòng thử lại sau.',
                 cause: 'Vui lòng đăng nhập lại.'
             });
         }
-
-        // Gắn thông tin user vào request để sử dụng ở các middleware khác
+        if (decoded.exp && decoded.exp < currentTime) {
+            return res.status(401).json({
+                status: false,
+                message: 'Token đã hết hạn.',
+              
+            });
+        }
+      
         req.body.user = decoded;
-        next(); // Chuyển sang middleware hoặc route tiếp theo
+        next();
     } catch (err) {
         console.error('Error verifying token:', err);
         res.status(401).json({

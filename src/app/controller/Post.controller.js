@@ -36,7 +36,7 @@ class PostController {
     async toggleReaction(req, res, next) {
         try {
             const { postId, userId, reactionType = '' } = req.body;
-console.log('Body toggle reaction: ', req.body)
+            console.log('Body toggle reaction: ', req.body)
             const emotions = ['LIKE', 'LOVE', 'HAHA', 'WOW', '', 'ANGRY', 'SAD']
             // Kiểm tra dữ liệu đầu vào
             if (!postId || !userId || !emotions.includes(reactionType)) {
@@ -189,6 +189,34 @@ console.log('Body toggle reaction: ', req.body)
         }
     }
 
+    async getPostDetails(req, res, next) {
+        try {
+
+            const {userId, postId} = req.query;
+            console.log('Req: ', req.body)
+            if (!userId || !postId) {
+                return res.status(400).json({
+                    message: 'Yêu cầu nhập đầy đủ userId, postId để lấy thông tin chi tiết bài viết.',
+                    status: false
+                })
+            }
+            const { data } = await getPostById(postId, userId)
+            return res.status(200).json({
+                message: 'Lấy bài viết chi tiết thành công',
+                data: data,
+                status: true
+            })
+        } catch (error) {
+            console.error('Error handling get post details:', error);
+            res.status(500).json({
+                message: 'Error handling get post details: ' + error.message,
+                status: false
+            });
+            next();
+        }
+    }
+
+    
 }
 
 module.exports = new PostController();

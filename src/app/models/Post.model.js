@@ -30,7 +30,6 @@ async function getPostOfUserQuery(userId, viewerId, page = 1, limit = 10) {
         // Trả về kết quả phân trang theo định dạng yêu cầu
         return {
             content: posts.map(item => {
-                console.log('item.top_reactions: ', item.top_reactions)
                 return {
                     ...item,
                     is_shared: item.is_share === 1 ? true : false,
@@ -64,8 +63,13 @@ async function getPostById(postId, userId) {
         if (post.length === 0) {
             throw new Error('Không tìm thấy bài viết có id = ' + postId)
         }
+        const data = post[0]
         return {
-            data: post[0]
+            data: {
+                ...data,
+                is_shared: data.is_share === 1 ? true : false,
+                hashtags: data.hashtags ? data.hashtags.split(',') : []
+            }
         }
     } catch (error) {
         console.error('Lỗi lấy bài viết:', error);

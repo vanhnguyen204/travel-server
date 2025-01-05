@@ -1,9 +1,9 @@
 const queryUsers = `
    SELECT
     u.id AS user_id,
-
     u.fullname,
- u.avatar_url
+    u.avatar_url,
+    fs.status AS friendship_status -- Trạng thái kết bạn (PENDING, ACCEPT, hoặc NULL nếu chưa kết bạn)
 FROM
     user u
 LEFT JOIN
@@ -14,11 +14,11 @@ ON
     (fs.user_send_id = ? AND fs.user_received_id = u.id)
 WHERE
     u.id != ? -- Loại bỏ chính người dùng hiện tại
-    AND (fs.status IS NULL OR fs.status != 'ACCEPT')
+    AND (fs.status IS NULL OR fs.status != 'ACCEPT') -- Lọc những người chưa kết bạn hoặc không phải bạn bè
 LIMIT ? OFFSET ?;
 
-
 `;
+
 const queryTotalCount = `
     SELECT COUNT(*) AS total
     FROM user u

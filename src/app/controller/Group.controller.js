@@ -8,10 +8,10 @@ class GroupController {
         try {
             const {  name, status, bio,  } = req.body;
             const user_id = req.body?.user_id;
-            console.log('body: ', req.body)
+            // console.log('body: ', req.body)
             const { group_id } = req.params;
             // Kiểm tra xem group_id có được cung cấp không
-            console.log('GroupId: ', group_id)
+            // console.log('GroupId: ', group_id)
             if (!group_id) {
                 return res.status(400).json({
                     message: 'Group ID is required.',
@@ -70,7 +70,7 @@ console.log('Update field: ', updateFields.join(", "))
         `;
         console.log('Query: ', query)
             const [updateResult] = await pool.promise().query(query, params);
-
+            console.log('updateResult: ', updateResult)
             // Kiểm tra nếu không có hàng nào bị ảnh hưởng
             if (updateResult.affectedRows === 0) {
                 return res.status(404).json({

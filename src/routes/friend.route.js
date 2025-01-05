@@ -10,7 +10,11 @@ var router = express.Router();
 
 
 
-router.get('/all', authenticateToken, FriendController.getUsersFromDB)
+router.get('/all', authenticateToken, FriendController.getUsersFromDB);
+router.get('/near', authenticateToken, FriendController.getUsersNearYou);
+router.get('/suggest', authenticateToken, FriendController.getUsersAsYouKnownAPI);
+router.get('/search', authenticateToken, FriendController.searchUser);
+
 
 
 module.exports = router;

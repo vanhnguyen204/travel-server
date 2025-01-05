@@ -6,7 +6,8 @@ var router = express.Router();
 
 
 
-router.get('/own/:userId', authenticateToken, PostController.getPostOfUser)
+router.get('/own/:userId', authenticateToken, PostController.getPostOfUser);
+router.get('/reaction', authenticateToken, PostController.getReactionOfPost)
 router.put('/toggle-reaction', authenticateToken, PostController.toggleReaction);
 router.post('/share', authenticateToken, PostController.sharePost);
 router.get('/details', authenticateToken, PostController.getPostDetails)

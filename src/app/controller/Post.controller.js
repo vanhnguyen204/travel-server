@@ -1,5 +1,5 @@
 const { pool } = require("../../db");
-const { getPostOfUserQuery, getPostById } = require("../models/Post.model");
+const { getPostOfUserQuery, getPostById, getReactionOfPost } = require("../models/Post.model");
 
 
 class PostController {
@@ -192,7 +192,7 @@ class PostController {
     async getPostDetails(req, res, next) {
         try {
 
-            const {userId, postId} = req.query;
+            const { userId, postId } = req.query;
             console.log('Req: ', req.body)
             if (!userId || !postId) {
                 return res.status(400).json({
@@ -216,7 +216,25 @@ class PostController {
         }
     }
 
-    
+    async getReactionOfPost(req, res, next) {
+        try {
+            const { postId } = req.query;
+            const responseReaction = await getReactionOfPost({ postId });
+            return res.status(200).json({
+                message: `Lấy danh sách cảm xúc của bài viết ${postId} thành công.`,
+                data: responseReaction,
+                status: true
+            })
+        } catch (error) {
+            console.error('Error handling get post details:', error);
+            res.status(500).json({
+                message: 'Error handling get post details: ' + error.message,
+                status: false
+            });
+            next();
+        }
+    }
+
 }
 
 module.exports = new PostController();

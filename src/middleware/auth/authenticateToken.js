@@ -23,6 +23,7 @@ const verifyToken = async (token) => {
         });
 
         // Kiểm tra thủ công claim `exp`
+        console.log('payload: ', payload)
         const currentTime = Math.floor(Date.now() / 1000);
         if (payload.exp && payload.exp < currentTime) {
             throw new Error('Token đã hết hạn.');
@@ -72,8 +73,11 @@ const authenticateToken = async (req, res, next) => {
               
             });
         }
-      
+        const { password, roles, ...rest } = checkUserIsLock[0]
         req.body.user = decoded;
+        req.body.userInfo = {
+            ...rest
+        }
         next();
     } catch (err) {
         console.error('Error verifying token:', err);

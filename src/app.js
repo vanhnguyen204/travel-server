@@ -7,7 +7,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const { parseRSS } = require('./rss/index')
 const { connect } = require('./redis/index.js');
-const { connectMongodb, testMysqlConnection } = require('./db/index.js')
+const { connectMongodb, testMysqlConnection, testMysqlConnectionWithKnex } = require('./db/index.js')
 const { friendNameSpace } = require('./socket/friend.io.js')
 const { chatFriendNameSpace } = require('./socket/chat-friend.io.js')
 const { videoCallNameSpace } = require('./socket/video-call.io.js')
@@ -43,6 +43,7 @@ connect()
 // Kết nối mongodb
 connectMongodb();
 testMysqlConnection();
+testMysqlConnectionWithKnex();
 // View engine setup
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'jade');

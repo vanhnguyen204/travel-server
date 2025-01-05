@@ -26,12 +26,29 @@ const pool = mysql.createPool({
 // Kiểm tra kết nối MySQL
 const testMysqlConnection = async () => {
     try {
-        const [rows] = await pool.promise().query('SELECT 1');
-        console.log('MySQL: Connected to MySQL successfully!');
+        const [rows] = await knex.select(['id']).from('user');
+        console.log('Row: ', rows)
+        console.log('MySQL: Connected to MySQL with pool successfully!');
     } catch (error) {
         console.error('MySQL connection error:', error);
     }
 };
-
+const knex = require('knex')({
+    client: 'mysql2',
+    connection: {
+        host: process.env.MYSQL_HOST,
+        user: process.env.MYSQL_USER,
+        password: process.env.MYSQL_PASSWORD,
+        database: process.env.MYSQL_DATABASE,
+    },
+});
+const testMysqlConnectionWithKnex = async () => {
+    try {
+        const [rows] = await pool.promise().query('SELECT 1');
+        console.log('MySQL: Connected to MySQL with knex successfully!');
+    } catch (error) {
+        console.error('MySQL connection error:', error);
+    }
+};
 // Export module
-module.exports = { connectMongodb, pool, testMysqlConnection };
+module.exports = { connectMongodb, pool, testMysqlConnection, knex, testMysqlConnectionWithKnex };

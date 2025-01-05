@@ -1,4 +1,4 @@
-const { pool } = require("../../db"); // Đảm bảo bạn đã kết nối với DB
+const { pool, knex } = require("../../db"); // Đảm bảo bạn đã kết nối với DB
 const { queryPostOfUser, queryPostById } = require("../queries/Post.query");
 
 
@@ -76,4 +76,52 @@ async function getPostById(postId, userId) {
         throw new Error(error)
     }
 }
-module.exports = { getPostOfUserQuery, getPostById };
+
+async function getReactionOfPost({ postId }) {
+    try {
+        const reactions = await knex('post_reaction')
+            .select(
+                'post_reaction.id AS reaction_id',
+                'post_reaction.post_id',
+                'post_reaction.type AS reaction_type',
+                'post_reaction.create_time',
+                'user.id AS user_id',
+                'user.fullname AS user_fullname',
+                'user.avatar_url AS user_avatar_url'
+            )
+            .join('user', 'post_reaction.user_id', 'user.id')
+            .where('post_reaction.post_id', postId)
+            .orderBy('post_reaction.create_time', 'desc');
+        const groupedReactions = {
+            ALL: [],
+            LOVE: [],
+            HAHA: [],
+            LIKE: [],
+            SAD: [],
+            ANGRY: [],
+            WOW: []
+        };
+        groupedReactions.ALL = reactions;
+        // Duyệt qua từng phản ứng và nhóm theo loại
+        reactions.forEach((reaction) => {
+            const { reaction_type } = reaction;
+
+            if (groupedReactions[reaction_type]) {
+                groupedReactions[reaction_type].push(reaction);
+            }
+        });
+
+        // Loại bỏ các phản ứng rỗng
+        Object.keys(groupedReactions).forEach((key) => {
+            if (groupedReactions[key].length === 0) {
+                delete groupedReactions[key];
+            }
+        });
+
+        return groupedReactions;
+    } catch (error) {
+        console.error("Error get reaction of post:", error);
+        throw new Error("Error get reaction of post: " + error);
+    }
+}
+module.exports = { getPostOfUserQuery, getPostById, getReactionOfPost };

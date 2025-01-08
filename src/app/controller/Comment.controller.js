@@ -1,7 +1,7 @@
 
 const { messaging } = require("firebase-admin");
 const { pool } = require("../../db");
-const { findCommentsByPostId, getReplyOfCommentByCommentId, findReactionOfComment } = require('../models/Comment.model.js')
+const { findCommentsByPostId, getReplyOfCommentByCommentId, findReactionOfComment, getTopReactionsOfComment } = require('../models/Comment.model.js')
 class CommentController {
 
     async getReplyOfComment(req, res, next) {
@@ -9,8 +9,8 @@ class CommentController {
         const { commentId, postId } = req.query;
         const page = parseInt(req.query?.page, 10) || 1;
         const limit = parseInt(req.query?.limit, 10) || 10;
-        const userId = req.body.userInfo.user_id
-
+        const userId = req.body.userInfo.id
+        console.log('Body: ', req.body.userInfo)
         try {
             const result = await getReplyOfCommentByCommentId({ post_id: postId, commentId, user_id: userId, page, limit });
             res.json({ status: true, data: result, message: 'Get reply success!' });
@@ -101,7 +101,8 @@ class CommentController {
         try {
 
             const { commentId, reactionType = '', userId } = req.body;
-
+            
+            let updateStatus = '';
             const emotions = ['LIKE', 'LOVE', 'HAHA', 'WOW', '', 'ANGRY', 'SAD']
             // Kiểm tra dữ liệu đầu vào
             if (!commentId || !userId || !emotions.includes(reactionType)) {
@@ -116,11 +117,14 @@ class CommentController {
                 DELETE FROM comment_reaction
                 WHERE comment_id = ? AND user_id = ?
             `;
+            
                 await pool.promise().query(deleteReactionQuery, [commentId, userId]);
-
+                updateStatus = 'REMOVE'
+                const top_reactions = await getTopReactionsOfComment(commentId);
                 return res.status(200).json({
                     message: 'Comment reaction removed successfully',
-                    status: true
+                    status: true,
+                    data: top_reactions[0]
                 });
             }
 
@@ -131,6 +135,7 @@ class CommentController {
         `;
             const [resCheckReaction] = await pool.promise().query(checkReactionQuery, [commentId, userId]);
 
+
             if (resCheckReaction.length > 0) {
                 // Nếu người dùng đã có reaction, thực hiện update
                 const updateReactionQuery = `
@@ -139,11 +144,8 @@ class CommentController {
         WHERE comment_id = ? AND user_id = ?
     `;
                 await pool.promise().query(updateReactionQuery, [reactionType, commentId, userId]);
+                updateStatus = 'UPDATE'
 
-                return res.status(200).json({
-                    message: 'Comment reaction updated successfully',
-                    status: true
-                });
             } else {
                 // Nếu người dùng chưa có reaction, thêm reaction mới vào cơ sở dữ liệu
                 const addReactionQuery = `
@@ -151,13 +153,16 @@ class CommentController {
         VALUES (?, ?, ?, NOW())
     `;
                 await pool.promise().query(addReactionQuery, [commentId, userId, reactionType]);
+                updateStatus = 'CREATE'
 
-                return res.status(200).json({
-                    message: 'Comment reaction added successfully',
-                    status: true
-                });
             }
-
+            const top_reactions = await getTopReactionsOfComment(commentId)
+            return res.status(200).json({
+                message: updateStatus === 'UPDATE' ? 'Comment reaction updated successfully' :
+                    updateStatus === 'REMOVE' ? 'Comment reaction removed successfully' : 'Comment reaction added successfully',
+                status: true,
+                data: top_reactions[0]
+            });
 
         } catch (error) {
             console.error('Error toggle comment reaction:', error);

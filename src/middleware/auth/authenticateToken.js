@@ -75,9 +75,9 @@ const authenticateToken = async (req, res, next) => {
         }
         const { password, roles, ...rest } = checkUserIsLock[0]
         req.body.user = decoded;
-        console.log('user info: ', {
-            ...rest
-        })
+        // console.log('user info: ', {
+        //     ...rest
+        // })
         req.body.userInfo = {
             ...rest
         }

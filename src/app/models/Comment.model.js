@@ -270,6 +270,7 @@ async function findReactionOfComment( { commentId}) {
             .orderBy('comment_reaction.create_time', 'desc')
 
         const groupedReactions = {
+            ALL: [],
             LOVE: [],
             HAHA: [],
             LIKE: [],
@@ -277,20 +278,12 @@ async function findReactionOfComment( { commentId}) {
             ANGRY: [],
             WOW: []
         };
-
+        groupedReactions.ALL = reactions;
         // Duyệt qua từng phản ứng và nhóm theo loại
         reactions.forEach((reaction) => {
-            const { reaction_type, user_id, user_fullname, user_avatar_url, create_time } = reaction;
-
-            const reactionData = {
-                user_id,
-                user_fullname,
-                user_avatar_url,
-                create_time
-            };
-
+            const { reaction_type, } = reaction;
             if (groupedReactions[reaction_type]) {
-                groupedReactions[reaction_type].push(reactionData);
+                groupedReactions[reaction_type].push(reaction);
             }
         });
 
@@ -308,4 +301,39 @@ async function findReactionOfComment( { commentId}) {
     }
 }
 
-module.exports = { findCommentsByPostId, getReplyOfCommentByCommentId, findReactionOfComment };
+async function getTopReactionsOfComment(commentId) {
+    try {
+        const subQuery = knex('comment_reaction as r')
+            .select('r.type')
+            .count('* as count')
+            .where('r.comment_id', commentId)
+            .andWhere('r.type', '!=', '')
+            .groupBy('r.type')
+            .orderBy('count', 'desc')
+            .limit(3)
+            .as('sub_r');
+
+        const query = knex
+            .select(
+                knex.raw(
+                    `JSON_ARRAYAGG(
+                        JSON_OBJECT(
+                            'type', sub_r.type,
+                            'count', sub_r.count
+                        )
+                    ) AS top_reactions`
+                ),
+                knex('comment_reaction as r')
+                    .count('*')
+                    .where(`r.comment_id`, commentId)
+                    .as('total_reactions')
+            )
+            .from(subQuery);
+        const result = await query;
+        return result;
+    } catch (error) {
+        console.error('Error executing query:', error.message);
+        throw new Error(`Error fetching top reactions: ${error.message}`);
+    }
+}
+module.exports = { findCommentsByPostId, getReplyOfCommentByCommentId, findReactionOfComment, getTopReactionsOfComment };

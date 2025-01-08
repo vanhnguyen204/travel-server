@@ -138,7 +138,12 @@ const friendNameSpace = (io) => {
                 }
 
                 foregroundNotifyNameSpace.adapter.rooms.set(topic, newSet);
-
+                const updateStatusFriendShip = `
+        UPDATE friend_ship 
+        SET status = 'ACCEPT', create_time = NOW()
+        WHERE id = ?
+    `;
+                await pool.promise().query(updateStatusFriendShip, [friendIdMySQL[0].id])
                 // Tạo thông báo
                 const notify = {
                     title: yourName,
@@ -160,6 +165,7 @@ const friendNameSpace = (io) => {
                     ],
                     type: 'friend'
                 };
+
 
                 const newNotification = new Notification(notify);
                 await newNotification.save();

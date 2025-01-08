@@ -71,7 +71,7 @@ class AuthenticationController {
 
             // Kiểm tra xem tài khoản có bị khóa hay không
             const [checkIsLocked] = await pool.promise().query(
-                'SELECT * FROM user WHERE email = ? AND is_locked = "LOOK"',
+                'SELECT * FROM user WHERE email = ? AND is_locked = "LOCK"',
                 [email]
             );
 

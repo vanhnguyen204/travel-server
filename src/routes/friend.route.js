@@ -14,6 +14,8 @@ router.get('/all', authenticateToken, FriendController.getUsersFromDB);
 router.get('/near', authenticateToken, FriendController.getUsersNearYou);
 router.get('/suggest', authenticateToken, FriendController.getUsersAsYouKnownAPI);
 router.get('/search', authenticateToken, FriendController.searchUser);
+router.get('/invite', authenticateToken, FriendController.getFriendInviteAPI);
+router.get('/my-friend', authenticateToken, FriendController.getMyFriendAPI);
 
 
 

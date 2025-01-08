@@ -195,4 +195,123 @@ SELECT COUNT(*) AS total FROM PotentialFriends pf;
     }
 }
 
-module.exports = { getUsers , getUsersAsYouKnown};
+async function getMyFriend({ userId, limit = 10, page = 1 }) {
+    try {
+        const offset = (page - 1) * limit;
+
+        // Câu truy vấn SQL
+        const query = `
+            WITH FriendList AS (
+                SELECT
+                    CASE
+                        WHEN fs.user_send_id = ? THEN fs.user_received_id
+                        ELSE fs.user_send_id
+                    END AS friend_id
+                FROM friend_ship fs
+                WHERE (fs.user_send_id = ? OR fs.user_received_id = ?) AND fs.status = 'ACCEPT'
+            )
+            SELECT
+                 u.id AS user_id,
+                u.fullname,
+                u.avatar_url
+            FROM user u
+            INNER JOIN FriendList fl ON u.id = fl.friend_id
+            LIMIT ? OFFSET ?;
+        `;
+
+        // Lấy danh sách bạn bè
+        const [friends] = await pool.promise().query(query, [
+            userId, // user_send_id hoặc user_received_id
+            userId,
+            userId,
+            limit, // Giới hạn số lượng kết quả
+            offset // Vị trí bắt đầu
+        ]);
+
+        // Tính tổng số bạn bè để chia trang
+        const countQuery = `
+            SELECT COUNT(*) AS total
+            FROM friend_ship fs
+            WHERE (fs.user_send_id = ? OR fs.user_received_id = ?) AND fs.status = 'ACCEPT';
+        `;
+        const [[{ total }]] = await pool.promise().query(countQuery, [userId, userId]);
+
+        // Kết quả trả về
+        return {
+            content: friends,
+            pageNumber: page,
+            pageSize: limit,
+            totalElements: total,
+            totalPages: Math.ceil(total / limit),
+            first: page === 1,
+            last: offset + friends.length >= total,
+            size: friends.length,
+            empty: friends.length === 0
+        };
+    } catch (error) {
+        console.error("Error in getMyFriend:", error.message);
+        throw new Error(`Error getMyFriend: ${error.message}`);
+    }
+}
+
+
+async function getFriendInvite({ userId, limit = 10, page = 1 }) {
+    try {
+        const offset = (page - 1) * limit;
+
+        // Câu truy vấn SQL
+        const query = `
+            WITH FriendList AS (
+                SELECT
+                    CASE
+                        WHEN fs.user_send_id = ? THEN fs.user_received_id
+                        ELSE fs.user_send_id
+                    END AS friend_id
+                FROM friend_ship fs
+                WHERE (fs.user_send_id = ? OR fs.user_received_id = ?) AND fs.status = 'PENDING'
+            )
+            SELECT
+                u.id AS user_id,
+                u.fullname,
+                u.avatar_url
+               
+            FROM user u
+            INNER JOIN FriendList fl ON u.id = fl.friend_id
+            LIMIT ? OFFSET ?;
+        `;
+
+        // Lấy danh sách bạn bè
+        const [friends] = await pool.promise().query(query, [
+            userId, // user_send_id hoặc user_received_id
+            userId,
+            userId,
+            limit, // Giới hạn số lượng kết quả
+            offset // Vị trí bắt đầu
+        ]);
+
+        // Tính tổng số bạn bè để chia trang
+        const countQuery = `
+            SELECT COUNT(*) AS total
+            FROM friend_ship fs
+            WHERE (fs.user_send_id = ? OR fs.user_received_id = ?) AND fs.status = 'PENDING';
+        `;
+        const [[{ total }]] = await pool.promise().query(countQuery, [userId, userId]);
+
+        // Kết quả trả về
+        return {
+            content: friends,
+            pageNumber: page,
+            pageSize: limit,
+            totalElements: total,
+            totalPages: Math.ceil(total / limit),
+            first: page === 1,
+            last: offset + friends.length >= total,
+            size: friends.length,
+            empty: friends.length === 0
+        };
+    } catch (error) {
+        console.error("Error in getMyFriend:", error.message);
+        throw new Error(`Error getMyFriend: ${error.message}`);
+    }
+}
+module.exports = { getUsers, getUsersAsYouKnown, getFriendInvite , getMyFriend};

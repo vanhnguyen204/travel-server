@@ -1,5 +1,5 @@
 const { pool } = require("../../db");
-const { getUsers, getUsersAsYouKnown } = require("../models/Friend.model");
+const { getUsers, getUsersAsYouKnown, getFriendInvite, getMyFriend } = require("../models/Friend.model");
 
 
 class FriendController {
@@ -222,6 +222,62 @@ class FriendController {
         }
     }
 
+    async getFriendInviteAPI(req, res, next) {
+        try {
+            const { id } = req.body.userInfo;
+            const page = parseInt(req.query?.page, 10) || 1;
+            const limit = parseInt(req.query?.limit, 10) || 20;
+            if (page < 1 || limit < 1) {
+                return res.status(400).json({
+                    status: false,
+                    message: 'Page và limit phải lớn hơn 1'
+                })
+            }
+
+            const friendInvite = await getFriendInvite({ userId: id, limit, page });
+            return res.status(200).json({
+                data: friendInvite,
+                message: 'Lấy danh sách lời mời kết bạn thành công',
+                status: true
+            })
+        } catch (error) {
+            console.error('Error getFriendInvite:', error);
+            res.status(500).json({
+                message: 'Error getFriendInvite: ' + error.message,
+                status: false
+            });
+            next(error);
+        }
+    }
+
+    async getMyFriendAPI(req, res, next) {
+        try {
+            const { id } = req.body.userInfo;
+            const page = parseInt(req.query?.page, 10) || 1;
+            const limit = parseInt(req.query?.limit, 10) || 20;
+            if (page < 1 || limit < 1) {
+                return res.status(400).json({
+                    status: false,
+                    message: 'Page và limit phải lớn hơn 1'
+                })
+            }
+            const response = await getMyFriend({ userId: id, limit, page })
+
+            return res.status(200).json({
+                data: response,
+                message: 'Lấy danh sách bạn bè thành công',
+                status: true
+            })
+
+        } catch (error) {
+            console.error('Error getMyFriend:', error);
+            res.status(500).json({
+                message: 'Error getMyFriend: ' + error.message,
+                status: false
+            });
+            next(error);
+        }
+    }
 }
 const haversineQuery = (lat, lon, limit, offset, userId) => {
     return `

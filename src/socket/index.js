@@ -40,4 +40,4 @@ class SocketManager {
     }
 }
 
-module.exports = SocketManager.getInstance();
+module.exports = new SocketManager()

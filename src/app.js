@@ -19,7 +19,7 @@ const routes = require('./routes/index.js')
 const app = express();
 const { ip } = require('./utils/ip.js');
 const { updateGroupIdsAndListen } = require('./rabbitmq/eventStartListening.js');
-
+const SocketManager = require('./socket/index.js')
 const RabbitMQScheduler = require('./rabbitmq/index.js');
 const reportNameSpace = require('./socket/report.io.js');
 //connect rabbit-mq
@@ -39,6 +39,8 @@ RabbitMQScheduler.connect()
 });
 // Kết nối tới Redis
 connect()
+
+
 
 // Kết nối mongodb
 connectMongodb();
@@ -68,13 +70,9 @@ app.use((err, req, res, next) => {
 
 const port = 5000;
 const server = http.createServer(app);
-const io = new Server(server, {
-  cors: {
-    origin: "*",
-    methods: ["GET", "POST"],
-    credentials: true,
-  }
-});
+// Kết nối socket.io
+SocketManager.initialize(server)
+const io = SocketManager.getIO();
 
 chatNamespace(io);
 friendNameSpace(io);

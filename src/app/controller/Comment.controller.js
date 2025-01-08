@@ -31,8 +31,8 @@ class CommentController {
                     message: 'Page và limit phải lớn hơn 1'
                 })
             }
-            console.log('User info: ', req.body.userInfo);
-            const response = await findCommentsByPostId(postId, req.body.userInfo.user_id, page, limit)
+            // console.log('User info: ', req.body.userInfo);
+            const response = await findCommentsByPostId(postId, req.body.userInfo.id, page, limit)
             res.status(200).json({
                 message: 'OKE',
                 data: {

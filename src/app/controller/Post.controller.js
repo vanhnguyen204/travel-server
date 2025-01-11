@@ -1,8 +1,259 @@
 const { pool } = require("../../db");
-const { getPostOfUserQuery, getPostById, getReactionOfPost } = require("../models/Post.model");
+const { s3UploadImages } = require("../../middleware/aws-s3/s3.service");
+const { getPostOfUserQuery, getPostById, getReactionOfPost, getTopReactionsOfPost } = require("../models/Post.model");
 
 
 class PostController {
+
+    async deletePost(req, res, next) {
+        try {
+            const { postId } = req.params;
+            const userId = req.body.userInfo.id;
+            const [checkPermission] = await pool.promise().query('Select * from post where id = ?', [postId]);
+            const checkResult = checkPermission[0];
+            console.log('checkPermission: ', checkPermission);
+            if (checkResult.is_share === 0) {
+                if (checkResult.user_id !== userId) {
+                    return res.status(400).json({
+                        status: false,
+                        message: 'Bạn không có quyền xoá bài viết này vì nó không phải của bạn.'
+                    })
+                }
+            } else {
+                if (checkResult.share_by_id !== userId) {
+                    return res.status(400).json({
+                        status: false,
+                        message: 'Bạn không có quyền xoá bài viết này vì nó không phải của bạn.'
+                    })
+                }
+            }
+
+            await pool.promise().query('UPDATE  post SET delflag = 1 where id = ? ', [postId])
+            res.status(200).json({
+                message: 'Xoá bài viết thành công!',
+                status: true
+            })
+        } catch (error) {
+            await connection.rollback(); // Hoàn tác giao dịch nếu lỗi
+            console.error('Error create post:', error);
+            res.status(500).json({
+                message: 'Error create post: ' + error.message,
+                status: false
+            });
+            next(error);
+        }
+    }
+    async createPost(req, res, next) {
+        const connection = await pool.promise().getConnection(); // Tạo kết nối để quản lý giao dịch
+        try {
+            const { post } = req.body;
+            const { content, status, user_id, location, hashtags } = JSON.parse(post);
+
+            // Kiểm tra input
+            if (!content || !status || !user_id || !location) {
+                return res.status(400).json({
+                    message: 'Vui lòng cung cấp đầy đủ thông tin bài viết.',
+                    status: false
+                });
+            }
+
+            await connection.beginTransaction(); // Bắt đầu giao dịch
+
+            // Thêm địa điểm vào bảng `location` và lấy ID
+            const [locationResult] = await connection.query(
+                `INSERT INTO location (address) VALUES (?)`,
+                [location]
+            );
+            const locationId = locationResult.insertId;
+
+            // Thêm bài viết vào bảng `post`
+            const [postResult] = await connection.query(
+                `
+            INSERT INTO post (content, create_time,is_share, status, user_id, location_id, delflag)
+            VALUES (?, NOW(), 0,?, ?, ?, 0)
+            `,
+                [content, status, user_id, locationId]
+            );
+            const postId = postResult.insertId;
+
+            // Thêm hashtag vào bảng `hash_tag` nếu có
+            if (hashtags && hashtags.length > 0) {
+                const hashtagInserts = hashtags.map(hashtag => [hashtag, postId]);
+                await connection.query(
+                    `
+                INSERT INTO hash_tag (hashtag, post_id)
+                VALUES ?
+                `,
+                    [hashtagInserts]
+                );
+            }
+
+            // Xử lý file nếu có
+            if (req.files && req.files.length > 0) {
+                const uploadedFiles = await s3UploadImages({
+                    files: req.files,
+                    folderName: 'travel-with-me/posts'
+                });
+
+                const mediaInserts = uploadedFiles.map(file => {
+                    const extension = file.split('.').pop().toLowerCase();
+                    const mediaType = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(extension)
+                        ? 'IMAGE'
+                        : ['mp4', 'mov', 'avi', 'mkv', 'webm'].includes(extension)
+                            ? 'VIDEO'
+                            : 'UNKNOWN';
+                    return [file, postId, mediaType, 0];
+                });
+
+                // Chèn thông tin media vào bảng `media`
+                await connection.query(
+                    `
+                INSERT INTO media (media_url, post_id, type, delflag)
+                VALUES ?
+                `,
+                    [mediaInserts]
+                );
+            }
+
+            await connection.commit(); // Xác nhận giao dịch
+
+            // Lấy bài viết chi tiết sau khi tạo
+            const { data } = await getPostById(postId, user_id);
+
+            return res.status(200).json({
+                message: 'Tạo bài viết thành công.',
+                data: data,
+                status: true
+            });
+        } catch (error) {
+            await connection.rollback(); // Hoàn tác giao dịch nếu lỗi
+            console.error('Error create post:', error);
+            res.status(500).json({
+                message: 'Error create post: ' + error.message,
+                status: false
+            });
+            next(error);
+        } finally {
+            connection.release(); // Giải phóng kết nối
+        }
+    }
+
+    async updatePost(req, res, next) {
+
+        try {
+            const { postId } = req.params;
+            const { post } = req.body;
+            const { content, status, user_id, location, hashtags, mediaNeedUpdate } = JSON.parse(post);
+
+            // Kiểm tra input
+            if (!postId && !content && !status && !user_id) {
+                return res.status(400).json({
+                    message: 'Vui lòng cung cấp ít nhất 1 thông tin bài viết để cập nhật.',
+                    status: false
+                });
+            }
+
+
+            // Kiểm tra và cập nhật địa điểm trong bảng `location` nếu cần (location có thể là null)
+            let locationId = null;
+            if (location !== null && location !== undefined) {
+                const [locationResult] = await pool.promise().query(
+                    `SELECT id FROM location WHERE address = ?`, [location]
+                );
+
+                if (locationResult.length === 0) {
+                    // Nếu không tìm thấy địa điểm, thêm mới
+                    const [insertResult] = await pool.promise().query(
+                        `INSERT INTO location (address) VALUES (?)`, [location]
+                    );
+                    locationId = insertResult.insertId;
+                } else {
+                    locationId = locationResult[0]?.id;
+                }
+            }
+
+            // Kiểm tra và cập nhật bài viết trong bảng `post` nếu có thay đổi
+            const postUpdates = [];
+            if (content) postUpdates.push(`content = '${content}'`);
+            if (status) postUpdates.push(`status = '${status}'`);
+            if (locationId !== null) postUpdates.push(`location_id = ${locationId}`);
+
+            console.log('Update: ', postUpdates)
+
+            if (postUpdates.length > 0) {
+                const query = `
+                UPDATE post 
+                SET ${postUpdates.join(', ')}
+                WHERE id =?
+                `
+                console.log('Query: ', query)
+                await pool.promise().query(query
+                    ,
+                    [postId]
+                );
+            }
+
+            // Kiểm tra và cập nhật hashtag trong bảng `hash_tag`
+            if (hashtags) {
+                await pool.promise().query(`DELETE FROM hash_tag WHERE post_id = ?`, [postId]);
+                if (hashtags.length > 0) {
+                    const hashtagInserts = hashtags.map(hashtag => [hashtag, postId]);
+                    await pool.promise().query(
+                        `
+                    INSERT INTO hash_tag (hashtag, post_id)
+                    VALUES ?
+                    `,
+                        [hashtagInserts]
+                    );
+                }
+            }
+
+            // Xử lý file nếu có
+            if (req.files && req.files.length > 0) {
+                const delMedia = mediaNeedUpdate.map(async mediaId => {
+                    await pool.promise().query('UPDATE media set delflag = 0 where id = ?', [mediaId])
+                })
+                await Promise.all(delMedia)
+                const uploadedFiles = await s3UploadImages({
+                    files: req.files,
+                    folderName: 'travel-with-me/posts'
+                });
+
+                const mediaInserts = uploadedFiles.map(file => {
+                    const extension = file.split('.').pop().toLowerCase();
+                    const mediaType = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(extension)
+                        ? 'IMAGE'
+                        : ['mp4', 'mov', 'avi', 'mkv', 'webm'].includes(extension)
+                            ? 'VIDEO'
+                            : 'UNKNOWN';
+                    return [file, postId, mediaType, 0];
+                });
+                await pool.promise().query(
+                    `
+                INSERT INTO media (media_url, post_id, type, delflag)
+                VALUES ?
+                `,
+                    [mediaInserts]
+                );
+            }
+            console.log(user_id, 'Response post: ', postId)
+            const { data } = await getPostById(postId, user_id);
+            console.log('Update post success!');
+            return res.status(200).json({
+                message: 'Cập nhật bài viết thành công.',
+                data: data,
+                status: true
+            });
+        } catch (error) {
+            console.error('Error update post:', error);
+            res.status(500).json({
+                message: 'Error update post: ' + error.message,
+                status: false
+            });
+            next(error);
+        }
+    }
+
 
     async getPostOfUser(req, res, next) {
         try {
@@ -30,13 +281,15 @@ class PostController {
                 message: 'Error get post of user: ' + error,
                 status: false
             });
-            next();
+            next(error);
         }
     }
     async toggleReaction(req, res, next) {
         try {
             const { postId, userId, reactionType = '' } = req.body;
-            console.log('Body toggle reaction: ', req.body)
+            // console.log('Body toggle reaction: ', req.body)
+
+            let updateStatus = '';
             const emotions = ['LIKE', 'LOVE', 'HAHA', 'WOW', '', 'ANGRY', 'SAD']
             // Kiểm tra dữ liệu đầu vào
             if (!postId || !userId || !emotions.includes(reactionType)) {
@@ -53,10 +306,12 @@ class PostController {
                 WHERE post_id = ? AND user_id = ?
             `;
                 await pool.promise().query(deleteReactionQuery, [postId, userId]);
+                const responseTopReaction = await getTopReactionsOfPost(postId)
 
                 return res.status(200).json({
                     message: 'Reaction removed successfully',
-                    status: true
+                    status: true,
+                    data: responseTopReaction[0]
                 });
             }
 
@@ -81,11 +336,7 @@ class PostController {
                 VALUES (?, ?, ?, NOW())
             `;
                 await pool.promise().query(addReactionQuery, [postId, userId, reactionType]);
-
-                return res.status(200).json({
-                    message: 'Reaction updated successfully',
-                    status: true
-                });
+                updateStatus = 'UPDATE'
             } else {
                 // Nếu người dùng chưa có reaction, thêm reaction mới vào cơ sở dữ liệu
                 const addReactionQuery = `
@@ -93,12 +344,15 @@ class PostController {
                 VALUES (?, ?, ?, NOW())
             `;
                 await pool.promise().query(addReactionQuery, [postId, userId, reactionType]);
+                updateStatus = 'CREATE'
 
-                return res.status(200).json({
-                    message: 'Reaction added successfully',
-                    status: true
-                });
             }
+            const responseTopReaction = await getTopReactionsOfPost(postId)
+            return res.status(200).json({
+                message: updateStatus === 'UPDATE' ? 'Reaction updated successfully' : 'Reaction added successfully',
+                status: true,
+                data: responseTopReaction[0]
+            });
         } catch (error) {
             console.error('Error handling toggle reaction:', error);
 
@@ -106,7 +360,7 @@ class PostController {
                 message: 'Error handling toggle reaction: ' + error.message,
                 status: false
             });
-            next();
+            next(error);
         }
     }
 
@@ -185,7 +439,7 @@ class PostController {
                 message: 'Error handling share post reaction: ' + error.message,
                 status: false
             });
-            next();
+            next(error);
         }
     }
 
@@ -212,7 +466,7 @@ class PostController {
                 message: 'Error handling get post details: ' + error.message,
                 status: false
             });
-            next();
+            next(error);
         }
     }
 
@@ -231,7 +485,7 @@ class PostController {
                 message: 'Error handling get post details: ' + error.message,
                 status: false
             });
-            next();
+            next(error);
         }
     }
 

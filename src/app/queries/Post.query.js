@@ -20,7 +20,7 @@ SELECT
     p.status_share,
     (SELECT create_time FROM post WHERE id = p.post_id) AS original_post_create_time, -- Thời gian tạo bài viết gốc
     COUNT(DISTINCT r.id) AS reaction_count,
-    COUNT(DISTINCT c.id) AS comment_count,
+    COUNT(DISTINCT CASE WHEN c.del_flag = 0 THEN c.id ELSE NULL END) AS comment_count,
     (SELECT COUNT(*) FROM post WHERE post_id = p.id) AS share_count,
     MAX(CASE WHEN r.user_id = ? THEN r.type ELSE NULL END) AS user_reaction_type,
     COALESCE(GROUP_CONCAT(DISTINCT ht.hashtag ORDER BY ht.hashtag), '') AS hashtags,
@@ -103,7 +103,8 @@ SELECT
     p.status_share,
     (SELECT create_time FROM post WHERE id = p.post_id) AS original_post_create_time, -- Thời gian tạo bài viết gốc
     COUNT(DISTINCT r.id) AS reaction_count,
-    COUNT(DISTINCT c.id) AS comment_count,
+   COUNT(DISTINCT CASE WHEN c.del_flag = 0 THEN c.id ELSE NULL END) AS comment_count,
+
     (SELECT COUNT(*) FROM post WHERE post_id = p.id) AS share_count,
     MAX(CASE WHEN r.user_id = ? THEN r.type ELSE NULL END) AS user_reaction_type,
     COALESCE(GROUP_CONCAT(DISTINCT ht.hashtag ORDER BY ht.hashtag), '') AS hashtags,
@@ -159,7 +160,7 @@ WHERE
         (p.is_share = 0 AND p.user_id = ?)
         OR (p.is_share = 1 AND p.share_by_id = ?)
     )
-    AND p.status = 'PUBLIC'
+    AND p.status = 'PUBLIC' AND p.delflag = 0
 GROUP BY
     p.id, p.user_id, p.location_id, l.address, u.fullname, u.avatar_url, p.content, p.status,
     p.create_time, p.is_share, p.share_by_id, us.fullname, us.avatar_url, p.share_content,

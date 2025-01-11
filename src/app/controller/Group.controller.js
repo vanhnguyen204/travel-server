@@ -6,7 +6,8 @@ class GroupController {
 
     async updateGroup(req, res, next) {
         try {
-            const {  name, status, bio,  } = req.body;
+            const { name, status, bio, } = req.body;
+            // console.log('Req: ', req.body);
             const user_id = req.body?.user_id;
             // console.log('body: ', req.body)
             const { group_id } = req.params;
@@ -61,14 +62,14 @@ class GroupController {
             // Thêm group_id và user_id vào params
             params.push(group_id, user_id);
             console.log('Params: ', params)
-console.log('Update field: ', updateFields.join(", "))
+            console.log('Update field: ', updateFields.join(", "))
             // Thực hiện cập nhật
             const query = `
             UPDATE m_group
             SET ${updateFields.join(", ")}
             WHERE id = ? AND user_id = ?
         `;
-        console.log('Query: ', query)
+            console.log('Query: ', query)
             const [updateResult] = await pool.promise().query(query, params);
             console.log('updateResult: ', updateResult)
             // Kiểm tra nếu không có hàng nào bị ảnh hưởng

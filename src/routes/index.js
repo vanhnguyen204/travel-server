@@ -9,7 +9,8 @@ const auth = require('./auth.route.js')
 const post = require('./post.route.js')
 const comment = require('./comment.route.js')
 const friend = require('./friend.route.js');
-const group = require('./group.route.js')
+const group = require('./group.route.js');
+const report = require('./report.route.js');
 const route = (app) => {
   app.use('/news', rss);
   app.use('/notification', travelPlan);
@@ -20,10 +21,12 @@ const route = (app) => {
   app.use('/topic', topic)
   app.use('/travel-plan', travelPlanV2);
   app.use('/auth', auth);
-  app.use('/posts', post );
+  app.use('/posts', post);
   app.use('/comments', comment);
-  app.use('/friends',friend );
+  app.use('/friends', friend);
   app.use('/groups', group)
+
+  app.use('/report', report);
 }
 
 module.exports = route

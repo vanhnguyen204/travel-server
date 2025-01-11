@@ -25,7 +25,7 @@ class Location {
                 const responseData = data.predictions.map(item => {
                     return {
                         description: item.description,
-                        compound: item.compound
+                        compound: item.compound.commune +', '+ item.compound.district +', '+ item.compound.province
                     }
                 })
                 res.json(responseData);

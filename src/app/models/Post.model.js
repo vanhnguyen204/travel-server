@@ -68,7 +68,8 @@ async function getPostById(postId, userId) {
             data: {
                 ...data,
                 is_shared: data.is_share === 1 ? true : false,
-                hashtags: data.hashtags ? data.hashtags.split(',') : []
+                hashtags: data.hashtags ? data.hashtags.split(',') : [],
+                top_reactions: data.top_reactions ? data.top_reactions : []
             }
         }
     } catch (error) {
@@ -124,4 +125,42 @@ async function getReactionOfPost({ postId }) {
         throw new Error("Error get reaction of post: " + error);
     }
 }
-module.exports = { getPostOfUserQuery, getPostById, getReactionOfPost };
+
+
+async function getTopReactionsOfPost(postId) {
+    try {
+        const subQuery = knex('post_reaction as r')
+            .select('r.type')
+            .count('* as count')
+            .where('r.post_id', postId)
+            .andWhere('r.type', '!=', '')
+            .groupBy('r.type')
+            .orderBy('count', 'desc')
+            .limit(3)
+            .as('sub_r');
+
+        const query = knex
+            .select(
+                knex.raw(
+                    `JSON_ARRAYAGG(
+                        JSON_OBJECT(
+                            'type', sub_r.type,
+                            'count', sub_r.count
+                        )
+                    ) AS top_reactions`
+                ),
+                knex('post_reaction as r')
+                    .count('*')
+                    .where(`r.post_id`, postId)
+                    .as('total_reactions')
+            )
+            .from(subQuery);
+        const result = await query;
+        
+        return result;
+    } catch (error) {
+        console.error('Error executing query:', error.message);
+        throw new Error(`Error fetching top reactions: ${error.message}`);
+    }
+}
+module.exports = { getPostOfUserQuery, getPostById, getReactionOfPost, getTopReactionsOfPost };

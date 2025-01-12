@@ -1,6 +1,6 @@
 const { pool } = require("../../db");
 const { s3UploadImages } = require("../../middleware/aws-s3/s3.service");
-const { getPostOfUserQuery, getPostById, getReactionOfPost, getTopReactionsOfPost } = require("../models/Post.model");
+const { getPostOfUserQuery, getPostById, getReactionOfPost, getTopReactionsOfPost, getPostGlobal } = require("../models/Post.model");
 
 
 class PostController {
@@ -488,6 +488,41 @@ class PostController {
             next(error);
         }
     }
+
+
+    //VIP
+
+
+    async getPostGlobalOneHundredPoint(req, res, next) {
+        try {
+            const { userId } = req.params;
+            const page = parseInt(req.query?.page, 10) || 1;  // Mặc định là 1 nếu không có page
+            const limit = parseInt(req.query?.limit, 10) || 2;
+
+            if (!userId || isNaN(userId)) {
+                return res.status(400).json({
+                    message: 'Yêu cầu userId hợp lệ cho request params để sử dụng API này.',
+                    status: false
+                });
+            }
+            const response = await getPostGlobal(userId, page, limit);
+            return res.status(200).json({
+                message: 'Lấy bài viết ở màn home okela',
+                data: response,
+                status: true
+            })
+            
+        } catch (error) {
+            console.error('Error  get post global:', error);
+            res.status(500).json({
+                message: 'Error  get post global: ' + error.message,
+                status: false
+            });
+            next(error);
+        }
+    }
+
+
 
 }
 

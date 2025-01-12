@@ -6,7 +6,7 @@ const { upload } = require('../middleware/upload');
 var router = express.Router();
 
 
-
+router.get('/global/:userId', authenticateToken, PostController.getPostGlobalOneHundredPoint)
 router.get('/own/:userId', authenticateToken, PostController.getPostOfUser);
 router.get('/reaction', authenticateToken, PostController.getReactionOfPost)
 router.get('/details', authenticateToken, PostController.getPostDetails);

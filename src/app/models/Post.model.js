@@ -1,5 +1,5 @@
 const { pool, knex } = require("../../db"); // Đảm bảo bạn đã kết nối với DB
-const { queryPostOfUser, queryPostById } = require("../queries/Post.query");
+const { queryPostOfUser, queryPostById, queryPostGlobal } = require("../queries/Post.query");
 
 
 // Truy vấn tổng số bài viết của người dùng (không phân trang)
@@ -156,11 +156,95 @@ async function getTopReactionsOfPost(postId) {
             )
             .from(subQuery);
         const result = await query;
-        
+
         return result;
     } catch (error) {
         console.error('Error executing query:', error.message);
         throw new Error(`Error fetching top reactions: ${error.message}`);
     }
 }
-module.exports = { getPostOfUserQuery, getPostById, getReactionOfPost, getTopReactionsOfPost };
+
+const getPostGlobal = async (userId, page = 1, limit = 10) => {
+    try {
+        const offset = (page - 1) * limit;
+
+        // Truy vấn để lấy tổng số bài viết phù hợp
+        const countQuery = `
+            SELECT COUNT(DISTINCT p.id) AS totalElements
+            FROM post p
+            LEFT JOIN post_reaction r ON p.id = r.post_id
+            LEFT JOIN comment c ON p.id = c.post_id
+            WHERE (
+                (p.user_id = ?) OR 
+                (p.user_id IN (
+                    SELECT 
+                        CASE 
+                            WHEN user_send_id = ? THEN user_received_id
+                            ELSE user_send_id 
+                        END
+                    FROM friend_ship
+                    WHERE (user_send_id = ? OR user_received_id = ?)
+                    AND status = 'ACCEPTED'
+                )) OR 
+                (p.user_id IN (
+                    SELECT user_id 
+                    FROM post_reaction 
+                    WHERE post_id IN (
+                        SELECT id FROM post WHERE user_id = ?
+                    )
+                )) OR 
+                (p.user_id IN (
+                    SELECT user_id 
+                    FROM comment 
+                    WHERE post_id IN (
+                        SELECT id FROM post WHERE user_id = ?
+                    )
+                ))
+            )
+            AND p.status = 'PUBLIC'
+            AND p.delflag = 0;
+        `;
+
+        const [countResult] = await pool.promise().query(countQuery, [userId, userId, userId, userId, userId, userId]);
+        // console.log('countResult: ', countResult)
+        const totalElements = countResult[0]?.totalElements || 0;
+
+        // Tính toán số trang
+        const totalPages = Math.ceil(totalElements / limit);
+        const isFirstPage = page === 1;
+        const isLastPage = page >= totalPages;
+
+        // Truy vấn danh sách bài viết
+        const [posts] = await pool.promise().query(queryPostGlobal, [
+            +userId, 
+            // userId, userId, userId, userId, userId, userId,// Thay thế cho các tham số người dùng
+            limit, offset                  // Phân trang
+        ]);
+
+        // Trả về kết quả với thông tin phân trang
+        return {
+            content: posts.map(item => {
+                return {
+                    ...item,
+                    top_reactions: item.top_reactions ? item.top_reactions : [],
+                    is_shared: item.is_share === 1 ? true : false,
+                    hashtags: item.hashtags ? item.hashtags.split(',') : [],
+                }
+            }),
+            pageNumber: page,
+            pageSize: limit,
+            totalElements,
+            totalPages,
+            first: isFirstPage,
+            last: isLastPage,
+            size: posts.length,
+            empty: posts.length === 0,
+        };
+    } catch (error) {
+        console.error("Error fetching global posts:", error);
+       throw new Error(error)
+    }
+};
+
+
+module.exports = { getPostOfUserQuery, getPostById, getReactionOfPost, getTopReactionsOfPost, getPostGlobal };

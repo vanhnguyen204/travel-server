@@ -3,6 +3,29 @@ const { pool } = require("../../db");
 
 class ReportController {
 
+    async checkAlreadyReportPost(req, res, next) {
+        try {
+            const { postId, userId } = req.query;
+            const [checkIsReport] = await pool.promise().query('Select * from report where post_id = ? AND user_id = ?', [postId, userId]);
+            if (checkIsReport.length !== 0) {
+                return res.status(400).json({
+                    status: false,
+                    message: 'Bạn đã báo cáo bài viết này rồi, vui lòng không spam.'
+                })
+            }
+            return res.status(200).json({
+                message: 'Bạn chưa báo cáo bài viết này',
+                status: true
+            })
+        } catch (error) {
+            console.error('Error check report post:', error);
+            res.status(500).json({
+                message: 'Error check report post: ' + error.message,
+                status: false
+            });
+            next(error);
+        }
+    }
     async handleReportPost(req, res, next) {
         try {
             const {
@@ -11,6 +34,7 @@ class ReportController {
                 reason,
                 violationType,
             } = JSON.parse(req.body.report);
+            console.log('req: ', req.body)
             if (!postId || !userId || !reason) {
                 return res.status(400).json({
                     status: false,

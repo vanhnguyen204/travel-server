@@ -8,7 +8,7 @@ const { upload } = require('../middleware/upload');
 var router = express.Router();
 
 
-
+router.get('/is-reported-post', authenticateToken, ReportController.checkAlreadyReportPost)
 router.post('/post', authenticateToken, upload, ReportController.handleReportPost)
 router.post('/comment', authenticateToken, upload, ReportController.handleReportComment)
 

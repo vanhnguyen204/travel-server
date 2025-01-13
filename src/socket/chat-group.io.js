@@ -97,24 +97,6 @@ const chatNamespace = (io) => {
     socket.on('delete-group-single-message', async (data) => {
       const { groupId, messageId } = data;
 
-      const messages = await getData(groupId + '');
-      const filterMessages = messages.map(item => {
-        if (item.id === messageId) {
-          return {
-            ...item,
-            content: 'Đã bị gỡ'
-          }
-
-        }
-        return item
-      });
-      await setData(groupId + '', filterMessages);
-      socket.to(groupId).emit('delete-group-single-message', {
-        messageId,
-        newContent: 'Đã bị gỡ'
-      });
-      console.log('Delete message success!');
-
     })
 
     socket.on('disconnect', () => {

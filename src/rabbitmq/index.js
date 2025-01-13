@@ -24,8 +24,13 @@ class RabbitMQScheduler {
 
     async connect() {
         if (!this.connection) {
-            this.connection = await amqplib.connect(this.rabbitMQUrl);
-            console.log('Rabbit-MQ: Connected to RabbitMQ.');
+            try {
+                this.connection = await amqplib.connect(this.rabbitMQUrl);
+                console.log('RabbitMQ: Connected to RabbitMQ.');
+            } catch (error) {
+                console.error('Error connecting to RabbitMQ:', error);
+                setTimeout(() => this.connect(), 5000); // Retry after 5 seconds
+            }
         }
     }
 

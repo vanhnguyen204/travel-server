@@ -1,8 +1,7 @@
-
 services:
   app:
     build:
-      context: .
+      context: .  # Đảm bảo dấu cách ở đây
       dockerfile: Dockerfile
     container_name: nodejs_app
     ports:
@@ -10,19 +9,21 @@ services:
     environment:
       - NODE_ENV=production
       - MONGO_URI=mongodb://mongo:27017/travel-with-me
-      - MYSQL_HOST=localhost
+      - MYSQL_HOST=mysql # Chỉnh sửa ở đây
       - MYSQL_USER=root
       - MYSQL_PASSWORD=Vanh28082004@
       - MYSQL_DATABASE=Travel
       - REDIS_HOST=redis
-      - RABBITMQ_URI=amqp://rabbitmq
+      - RABBITMQ_URI=amqp://rabbitmq # Chỉnh sửa ở đây
+      
     depends_on:
       - mongo
       - mysql
       - redis
       - rabbitmq
- volumes:
+    volumes:
       - .:/usr/src/app
+
   mongo:
     image: mongo:6
     container_name: mongodb
@@ -37,6 +38,7 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: Vanh28082004@
       MYSQL_DATABASE: Travel
+      
     ports:
       - "4306:3306"
     volumes:
@@ -46,14 +48,14 @@ services:
     image: redis:7
     container_name: redis
     ports:
-      - "7379:6379"
+      - "6379:6379"
 
   rabbitmq:
     image: rabbitmq:3-management
     container_name: rabbitmq
     ports:
       - "5672:5672"
-      - "15672:15672" # RabbitMQ Management UI
+      - "15672:15672" 
 
 volumes:
   mongo_data:

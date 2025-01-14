@@ -12,36 +12,133 @@ const { handleSendEmail } = require("../../middleware/mailer");
 const KEY_VERIFY_CODE = "KEY_VERIFY_CODE";
 
 class AuthenticationController {
+  async handleRequestChangePass(req, res, next) {
+    try {
+      const { password } = req.body;
+      const { id: userId } = req.body.userInfo;
+      const [userResult] = await pool
+        .promise()
+        .query("SELECT * FROM user WHERE id = ?", [userId]);
+
+      if (userResult.length === 0) {
+        return res.status(400).json({
+          status: false,
+          message: `Tài khoản ${email} không tồn tại, vui lòng kiểm tra lại.`,
+        });
+      }
+      const user = userResult[0];
+
+      if (user.is_locked !== 'OPEN') {
+        return res.status(400).json({
+          status: false,
+          message: `Tài khoản đã bị khoá, không thể yêu cầu đổi mật khẩu lúc này, vui lòng thử lại sau.`,
+        });
+      }
+
+      
+      // Xử lý mật khẩu: loại bỏ tiền tố "{bcrypt}" nếu có
+      const hashedPassword = user.password.startsWith("{bcrypt}")
+        ? user.password.slice(8)
+        : user.password;
+
+      // Kiểm tra mật khẩu
+      const isPasswordValid = await bcrypt.compare(password, hashedPassword);
+      if (!isPasswordValid) {
+        return res.status(400).json({
+          status: false,
+          message: "Mật khẩu cũ không đúng, vui lòng thử lại.",
+        });
+      }
+
+      const verifyCode = Math.round(900000 * Math.random() + 100000);
+      await handleSendEmail({
+        userEmail: user.email,
+        subject: "Lấy lại mật khẩu",
+        text: `
+        Xin chào,
+
+        Để hoàn tất quá trình đổi mật khẩu, vui lòng sử dụng mã xác minh dưới đây:
+
+        Mã xác minh của bạn: ${verifyCode}
+
+        Mã này sẽ hết hạn sau 1 phút. Nếu bạn không yêu cầu mã này, vui lòng bỏ qua email này.
+
+        Nếu bạn gặp bất kỳ vấn đề nào, hãy liên hệ với chúng tôi qua email travelwithmefpl.work@gmail.com.
+
+        Trân trọng,  
+        Đội ngũ hỗ trợ của TravelWithMe
+        `,
+      });
+
+      const verifyInfo = {
+        code: verifyCode,
+      };
+      await setDataRedis(KEY_VERIFY_CODE + userId, verifyInfo, 60);
+      return res.status(200).json({
+        message:
+          "Mã xác nhận đã được gửi về email của bạn, vui lòng nhập mã 6 chữ số để thực hiện lấy lại mật khẩu.",
+        status: false,
+      });
+
+    } catch (error) {
+      console.error("Error handleRequestChangePass:", error);
+      res.status(500).json({ status: false, message: error.message });
+      next(error);
+    }
+  }
   async handleConfirmVerifyCode(req, res, next) {
     try {
-
-      const { code } = req.query;
-
-      const { id: userId } = req.body.userInfo;
+      const { code, userId } = req.query;
+      const [checkEmailExists] = await pool
+        .promise()
+        .query("SELECT * from user where id = ? ", [userId]);
+      // console.log(checkEmailExists);
+      const { delflag, is_locked } = checkEmailExists[0];
+      if (is_locked !== "OPEN") {
+        return res.status(400).json({
+          status: false,
+          message: `Tài khoản này đã bị khoá, vui lòng liên hệ với chúng tôi qua email travelwithmefpl.work@gmail.com.`,
+        });
+      }
       const resCode = await getDataRedis(KEY_VERIFY_CODE + userId);
+      if (resCode?.code !== +code) {
+        return res.status(400).json({
+          message: "Mã xác nhận không đúng hoặc đã hết hạn, vui lòng kiểm tra lại.",
+          status: false,
+        });
+      }
       return res.status(200).json({
-        message: 'OKE la',
+        message: "Xác nhận thành công, bạn có thể tạo mật khẩu mới",
         data: {
-          verifyCode: resCode,
-          requestCode: code
-        }
-      })
+          verifyCode: resCode?.code,
+          requestCode: +code,
+        },
+        status: true,
+      });
     } catch (error) {
       console.error("Error handleConfirmVerifyCode:", error);
       res.status(500).json({ status: false, message: error.message });
       next(error);
     }
   }
-  async handleRequestForgotPassword(req, res, next) {
+  async handleRequestRecoverPassword(req, res, next) {
     try {
-      const { email } = req.body;
+      const { email } = req.query;
       const [checkEmailExists] = await pool
         .promise()
-        .query("SELECT id from user where email = ? ", [email]);
+        .query("SELECT * from user where email = ? ", [email]);
+      console.log(checkEmailExists);
       if (checkEmailExists.length === 0) {
         return res.status(400).json({
           status: false,
           message: `Tài khoản ${email} không tồn tại, vui lòng kiểm tra lại.`,
+        });
+      }
+      const { delflag, is_locked, id: userId } = checkEmailExists[0];
+      if (is_locked !== "OPEN") {
+        return res.status(400).json({
+          status: false,
+          message: `Tài khoản này đã bị khoá, vui lòng liên hệ với chúng tôi qua email travelwithmefpl.work@gmail.com.`,
         });
       }
       const verifyCode = Math.round(900000 * Math.random() + 100000);
@@ -66,11 +163,12 @@ class AuthenticationController {
       const verifyInfo = {
         code: verifyCode,
       };
-      await setDataRedis(KEY_VERIFY_CODE + email, verifyInfo, 30);
+      await setDataRedis(KEY_VERIFY_CODE + userId, verifyInfo, 60);
       return res.status(200).json({
-        message:'Mã xác nhận đã được gửi về email của bạn, vui lòng nhập mã 6 chữ số để thực hiện lấy lại mật khẩu.',
+        message:
+          "Mã xác nhận đã được gửi về email của bạn, vui lòng nhập mã 6 chữ số để thực hiện lấy lại mật khẩu.",
         status: false,
-      })
+      });
     } catch (error) {
       console.error("Error request forgot password:", error);
       res.status(500).json({ status: false, message: error.message });

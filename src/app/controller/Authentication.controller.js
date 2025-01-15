@@ -28,14 +28,13 @@ class AuthenticationController {
       }
       const user = userResult[0];
 
-      if (user.is_locked !== 'OPEN') {
+      if (user.is_locked !== "OPEN") {
         return res.status(400).json({
           status: false,
           message: `Tài khoản đã bị khoá, không thể yêu cầu đổi mật khẩu lúc này, vui lòng thử lại sau.`,
         });
       }
 
-      
       // Xử lý mật khẩu: loại bỏ tiền tố "{bcrypt}" nếu có
       const hashedPassword = user.password.startsWith("{bcrypt}")
         ? user.password.slice(8)
@@ -61,7 +60,7 @@ class AuthenticationController {
 
         Mã xác minh của bạn: ${verifyCode}
 
-        Mã này sẽ hết hạn sau 1 phút. Nếu bạn không yêu cầu mã này, vui lòng bỏ qua email này.
+        Mã này sẽ hết hạn sau 5 phút. Nếu bạn không yêu cầu mã này, vui lòng bỏ qua email này.
 
         Nếu bạn gặp bất kỳ vấn đề nào, hãy liên hệ với chúng tôi qua email travelwithmefpl.work@gmail.com.
 
@@ -73,13 +72,18 @@ class AuthenticationController {
       const verifyInfo = {
         code: verifyCode,
       };
-      await setDataRedis(KEY_VERIFY_CODE + userId, verifyInfo, 60);
+      await setDataRedis(KEY_VERIFY_CODE + userId, verifyInfo, 60 * 5);
+
+      const token = await generateToken(user);
+
       return res.status(200).json({
         message:
           "Mã xác nhận đã được gửi về email của bạn, vui lòng nhập mã 6 chữ số để thực hiện lấy lại mật khẩu.",
         status: false,
+        data: {
+          token: token,
+        },
       });
-
     } catch (error) {
       console.error("Error handleRequestChangePass:", error);
       res.status(500).json({ status: false, message: error.message });
@@ -88,12 +92,13 @@ class AuthenticationController {
   }
   async handleConfirmVerifyCode(req, res, next) {
     try {
-      const { code, userId } = req.query;
+      const { code,  } = req.query;
+      const {id: userId } = req.body.userInfo
       const [checkEmailExists] = await pool
         .promise()
         .query("SELECT * from user where id = ? ", [userId]);
       // console.log(checkEmailExists);
-      const { delflag, is_locked } = checkEmailExists[0];
+      const { delflag, is_locked, email } = checkEmailExists[0];
       if (is_locked !== "OPEN") {
         return res.status(400).json({
           status: false,
@@ -103,12 +108,13 @@ class AuthenticationController {
       const resCode = await getDataRedis(KEY_VERIFY_CODE + userId);
       if (resCode?.code !== +code) {
         return res.status(400).json({
-          message: "Mã xác nhận không đúng hoặc đã hết hạn, vui lòng kiểm tra lại.",
+          message:
+            "Mã xác nhận không đúng hoặc đã hết hạn, vui lòng kiểm tra lại.",
           status: false,
         });
       }
       return res.status(200).json({
-        message: "Xác nhận thành công, bạn có thể tạo mật khẩu mới",
+        message: `Xác nhận tài khoản ${email} thành công, bạn có thể tạo mật khẩu mới`,
         data: {
           verifyCode: resCode?.code,
           requestCode: +code,
@@ -152,7 +158,7 @@ class AuthenticationController {
 
         Mã xác minh của bạn: ${verifyCode}
 
-        Mã này sẽ hết hạn sau 1 phút. Nếu bạn không yêu cầu mã này, vui lòng bỏ qua email này.
+        Mã này sẽ hết hạn sau 5 phút. Nếu bạn không yêu cầu mã này, vui lòng bỏ qua email này.
 
         Nếu bạn gặp bất kỳ vấn đề nào, hãy liên hệ với chúng tôi qua email travelwithmefpl.work@gmail.com.
 
@@ -163,7 +169,7 @@ class AuthenticationController {
       const verifyInfo = {
         code: verifyCode,
       };
-      await setDataRedis(KEY_VERIFY_CODE + userId, verifyInfo, 60);
+      await setDataRedis(KEY_VERIFY_CODE + userId, verifyInfo, 60 * 5);
       return res.status(200).json({
         message:
           "Mã xác nhận đã được gửi về email của bạn, vui lòng nhập mã 6 chữ số để thực hiện lấy lại mật khẩu.",
@@ -323,7 +329,9 @@ class AuthenticationController {
       }
 
       // Mã hóa mật khẩu
-      const hashedPassword = await bcrypt.hash(password, 10);
+      const saltRounds = 10; // Số vòng mã hóa
+
+      const hashedPassword = await bcrypt.hash(password, saltRounds);
 
       // Gán vai trò mặc định là USER
       const roles = JSON.stringify(["USER"]); // Lưu vai trò dưới dạng JSON trong cơ sở dữ liệu
@@ -400,7 +408,7 @@ class AuthenticationController {
       // Kiểm tra mật khẩu
       const isPasswordValid = await bcrypt.compare(password, hashedPassword);
       if (!isPasswordValid) {
-        return res.status(401).json({
+        return res.status(400).json({
           status: false,
           message: "Mật khẩu không đúng, vui lòng thử lại.",
         });

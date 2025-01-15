@@ -3,6 +3,7 @@ const queryUsers = `
     u.id AS user_id,
     u.fullname,
     u.avatar_url,
+    u.email,
     fs.status AS friendship_status -- Trạng thái kết bạn (PENDING, ACCEPT, hoặc NULL nếu chưa kết bạn)
 FROM
     user u

@@ -71,12 +71,12 @@ const chatFriendNameSpace = (io) => {
                 });
                 namespace.to(topic).emit("friend-chat-receive-message", {
                     ...res.toObject(),
-                    avatar_url: `data:image/jpeg;base64,${getCurrentMapUser.avatar}`,
+                    avatar_url:getCurrentMapUser.avatar? `data:image/jpeg;base64,${getCurrentMapUser.avatar}`:'',
 
                 });
                 if (!checkIsFocused || !checkIsFocused?.isFocusedOnChatScreen) {
 
-                    foregroundNotifyNameSpace.to(topic).emit('notify-foreground-chat-friend', {
+                    foregroundNotifyNameSpace.to(receiverId).emit('notify-foreground-chat-friend', {
                         senderName,
                         message,
                         someone,
@@ -85,6 +85,8 @@ const chatFriendNameSpace = (io) => {
                         friendId: senderId
                     })
                 }
+                const [getFriendInfo] =  await pool.promise().query('SELECT * from user where id = ?', [receiverId]);
+                const {device_token} = getFriendInfo[0]
                 await sendPushNotificationToTopic(topic, message, senderName,)
 
 

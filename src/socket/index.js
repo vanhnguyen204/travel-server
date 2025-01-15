@@ -28,6 +28,8 @@ class SocketManager {
                 },
             });
         }
+        console.log('Setup socket.io success!');
+        
         return this.io;
     }
 

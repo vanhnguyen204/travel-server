@@ -22,6 +22,15 @@ const { updateGroupIdsAndListen } = require('./rabbitmq/eventStartListening.js')
 const SocketManager = require('./socket/index.js')
 const RabbitMQScheduler = require('./rabbitmq/index.js');
 const reportNameSpace = require('./socket/report.io.js');
+
+
+const port = 5000;
+const server = http.createServer(app);
+// Kết nối socket.io
+SocketManager.initialize(server)
+const io = SocketManager.getIO();
+
+
 //connect rabbit-mq
 // const rabbit_mq = new RabbitMQScheduler()
 RabbitMQScheduler.connect()
@@ -68,11 +77,8 @@ app.use((err, req, res, next) => {
   res.render('error');
 });
 
-const port = 5000;
-const server = http.createServer(app);
-// Kết nối socket.io
-SocketManager.initialize(server)
-const io = SocketManager.getIO();
+
+
 
 chatNamespace(io);
 friendNameSpace(io);
@@ -83,7 +89,6 @@ videoCallNameSpace(io)
 groupNameSpace(io)
 
 reportNameSpace(io)
-
 server.listen(port, ip, () => {
   console.log(`Server is listening at http://${ip}:${port}`);
 });

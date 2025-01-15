@@ -27,7 +27,7 @@ const pool = mysql.createPool({
 const testMysqlConnection = async () => {
     try {
         const [rows] = await knex.select(['id']).from('user');
-        console.log('Row: ', rows)
+        // console.log('Row: ', rows)
         console.log('MySQL: Connected to MySQL with pool successfully!');
     } catch (error) {
         console.error('MySQL connection error:', error);

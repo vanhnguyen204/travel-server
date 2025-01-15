@@ -261,29 +261,25 @@ async function getFriendInvite({ userId, limit = 10, page = 1 }) {
 
         // Câu truy vấn SQL
         const query = `
-            WITH FriendList AS (
-                SELECT
-                    CASE
-                        WHEN fs.user_send_id = ? THEN fs.user_received_id
-                        ELSE fs.user_send_id
-                    END AS friend_id
-                FROM friend_ship fs
-                WHERE (fs.user_send_id = ? OR fs.user_received_id = ?) AND fs.status = 'PENDING'
-            )
-            SELECT
-                u.id AS user_id,
-                u.fullname,
-                u.avatar_url
-               
-            FROM user u
-            INNER JOIN FriendList fl ON u.id = fl.friend_id
-            LIMIT ? OFFSET ?;
-        `;
+    WITH FriendList AS (
+        SELECT
+            fs.user_send_id AS friend_id
+        FROM friend_ship fs
+        WHERE fs.user_received_id = ? AND fs.status = 'PENDING'
+    )
+    SELECT
+        u.id AS user_id,
+        u.fullname,
+        u.avatar_url
+    FROM user u
+    INNER JOIN FriendList fl ON u.id = fl.friend_id
+    LIMIT ? OFFSET ?;
+`;
+
 
         // Lấy danh sách bạn bè
         const [friends] = await pool.promise().query(query, [
-            userId, // user_send_id hoặc user_received_id
-            userId,
+           
             userId,
             limit, // Giới hạn số lượng kết quả
             offset // Vị trí bắt đầu
